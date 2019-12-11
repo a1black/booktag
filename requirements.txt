@@ -1,0 +1,2 @@
+python-magic==0.4.15
+urwid==2.1.0

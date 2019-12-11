@@ -1,3 +1,6 @@
+from booktag.utils import collections as appcollections
+
+
 class Node:
     """Implementation of a vertex in an undirected rooted tree.
 
@@ -12,6 +15,7 @@ class Node:
             "value": lambda node: node.get_value(),
             "degree": lambda node: node.get_degree()
         }
+        self.props = appcollections.attrdict(kwargs)
 
     def __str__(self):
         return str(self._value)
@@ -28,6 +32,13 @@ class Node:
             return True
         except ValueError:
             return False
+
+    def __getattr__(self, name):
+        try:
+            return self.props[name]
+        except KeyError:
+            raise AttributeError('{0!r} object has no attribute {1!r}'.format(
+                type(self).__name__, name))
 
     def __getitem__(self, index):
         return self._children[index]
