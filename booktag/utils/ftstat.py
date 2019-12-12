@@ -17,6 +17,9 @@ F_TODEL = 0o0001  # file marked to be deleted
 # File type as in module stat, occupied range:
 # S_IFIFO  = 0o010000
 # S_IFSOCK = 0o160000
+S_IFDIR = stat.S_IFDIR
+S_IFREG = stat.S_IFREG
+S_IFLNK = stat.S_IFLNK
 
 # Constants for various content types.
 S_IFAUD = 0o0200000  # audio

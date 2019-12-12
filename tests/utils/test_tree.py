@@ -67,6 +67,11 @@ class TestNode:
         with pytest.raises(ValueError):
             parent.append(child)
 
+    def test_index_where_node_is_present_expect_child_index(self, makenode):
+        parent = makenode('parent', 'child1', 'child2')
+        assert parent.index('child1') == 0
+        assert parent.index('child2') == 1
+
     def test_remove_where_node_not_present_expect_ValueError(self, makenode):
         parent, child = makenode('parent'), makenode('child')
         with pytest.raises(ValueError):
