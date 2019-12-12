@@ -77,8 +77,8 @@ def path_scan(path):
 
     def make_node(path, parent):
         stat = os.stat(path, follow_symlinks=False)
-        child = tree.Node(path, ft_mode=ftstat.ft_mode(path),
-                          st_size=getattr(stat, 'st_size', 0))
+        child = tree.FileNode(path, ft_mode=ftstat.ft_mode(path),
+                              st_size=getattr(stat, 'st_size', 0))
         if parent is not None:
             child.set_value(os.path.split(path)[1])
             parent.append(child)

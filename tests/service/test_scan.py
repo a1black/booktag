@@ -195,14 +195,14 @@ def test_path_scan_where_path_is_directory_expect_rooted_tree(fs_dir):
     branch1_node = tree[tree.index(branch1_name)]
     assert branch1_node.get_parent() is tree
     assert branch1_node.get_value() == branch1_name
-    assert len(branch1_node) == branch1_size
+    assert len(branch1_node.get_children()) == branch1_size
     # Check branch2
     branch2_node = tree[tree.index(branch2_name)]
     assert branch2_node.get_parent() is tree
     assert branch2_node.get_value() == branch2_name
-    assert len(branch2_node) == branch2_size
+    assert len(branch2_node.get_children()) == branch2_size
     # Check path resolution
     for child in branch1_node.get_children():
-        assert os.path.exists(os.path.join(child.get_path()))
+        assert os.path.exists(child)
     for child in branch2_node.get_children():
-        assert os.path.exists(os.path.join(child.get_path()))
+        assert os.path.exists(child)

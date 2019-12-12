@@ -1,3 +1,5 @@
+import os
+
 from booktag.utils import collections as appcollections
 
 
@@ -138,7 +140,7 @@ class Node:
         return child
 
     def sort(self, key=None, reverse=False):
-        """Sorts child nodes.
+        """Recursive sorting of child nodes.
 
         Args:
             key (callable): a function that is used to extract a comparison key
@@ -146,7 +148,10 @@ class Node:
             reverse (boolean): If ``True`` then child nodes are sorted as
                 if each comparison were reversed.
         """
-        self._children.sort(key=self._resolve_sort_key(key), reverse=reverse)
+        sort_key = self._resolve_sort_key(key)
+        self._children.sort(key=sort_key, reverse=reverse)
+        for child in self._children:
+            child.sort(key=sort_key, reverse=reverse)
 
     def next_sibling(self):
         """Returns node's nearest sibling to the right."""
@@ -178,6 +183,13 @@ class Node:
                          doc="Names of supported key functions.")
     value = property(lambda s: s.get_value, lambda s: s.set_value,
                      doc="Data stored by the node.")
+
+
+class FileNode(Node, os.PathLike):
+    """Vertex that implements :class:`os.PathLike` interface."""
+
+    def __fspath__(self):
+        return os.path.join(*(x.get_value() for x in self.get_path()))
 
 
 # vim: ts=4 sw=4 sts=4 et ai
