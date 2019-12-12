@@ -1,18 +1,14 @@
 """Component responsible for building file tree.
 
-FsScanner component collects information about files under provided path
+:function:`book_path` collects information about files under provided path
 and returns internal representation of the file tree.
 
-FsScanner does not support resolving symbolic links. When reading a symbolic
-link the component collects information about the link itself rather then
-the link reference. Passing `fail_on_symlink`=False to the run method will
-completely disable symbolic link support.
 """
 import errno
 import os
 
 from booktag import exceptions
-from booktag.utils import ftype
+from booktag.utils import ftstat
 from booktag.utils import functional
 from booktag.utils import tree
 
@@ -23,6 +19,10 @@ def recursive_iterdir(path, *, maxdepth=None):
     When the `path` points to a file, generator yields single path object.
     When the `path` points to a directory, yield path objects of the directory
     contents.
+
+    This function does not resolve symbolic links. When reading a symbolic
+    link function will collect information about the link itself rather then
+    the link reference.
 
     Args:
         path (str): An absolute path to an existing file or directory.
@@ -40,13 +40,13 @@ def recursive_iterdir(path, *, maxdepth=None):
     def access(path, mode):
         """Returns ``True`` if process has read/write permissions."""
         perms = os.R_OK
-        if ftype.S_ISAUD(mode):
+        if ftstat.S_ISAUD(mode):
             perms |= os.W_OK
-        elif ftype.S_ISDIR(mode):
+        elif ftstat.S_ISDIR(mode):
             perms |= os.W_OK | os.X_OK
         return os.access(path, perms, follow_symlinks=False)
 
-    ft_mode = ftype.ft_mode(path)
+    ft_mode = ftstat.ft_mode(path)
     if not ft_mode:
         raise exceptions.FileNotSupportedError(
             'Neither file nor directory: {}'.format(path))
@@ -54,7 +54,7 @@ def recursive_iterdir(path, *, maxdepth=None):
         raise PermissionError(errno.EACCES, 'Write permission denied', path)
     if maxdepth is None or maxdepth >= 0:
         yield path  # yield current path
-        if ftype.S_ISDIR(ft_mode):  # yield directory contents
+        if ftstat.S_ISDIR(ft_mode):  # yield directory contents
             newdepth = None if maxdepth is None else maxdepth - 1
             for filename in os.listdir(path):
                 yield from recursive_iterdir(os.path.join(path, filename),
@@ -62,11 +62,14 @@ def recursive_iterdir(path, *, maxdepth=None):
 
 
 @functional.absnormpath_decr
-def book_path(path):
+def path_scan(path):
     """Returns in-memory file tree with root at `path`.
 
     Args:
         path (str): An absolute path name.
+
+    Raises:
+        exceptions.IsASymlinkError: If `path` is a symbol link.
     """
     def path_depth(path):
         sep = os.sep.encode() if isinstance(path, bytes) else os.sep
@@ -74,7 +77,7 @@ def book_path(path):
 
     def make_node(path, parent):
         stat = os.stat(path, follow_symlinks=False)
-        child = tree.Node(path, ft_mode=ftype.ft_mode(path),
+        child = tree.Node(path, ft_mode=ftstat.ft_mode(path),
                           st_size=getattr(stat, 'st_size', 0))
         if parent is not None:
             child.set_value(os.path.split(path)[1])
@@ -107,7 +110,7 @@ def book_path(path):
             raise RuntimeError('samething went wrong placing node {0!r} in '
                                '{1!r}'.format(cur_path, path))
     root = go_up(focus_node, 0)
-    if ftype.S_ISLNK(root.props.ft_mode):
+    if ftstat.S_ISLNK(root.props.ft_mode):
         raise exceptions.IsASymlinkError(path)
     return root
 

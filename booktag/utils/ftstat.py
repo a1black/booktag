@@ -1,3 +1,8 @@
+"""Constatns and functions for creating/interpreting bits that describes
+file format and application specific flags.
+
+This module is simular to :module:`stat`.
+"""
 import errno
 import os
 import re
@@ -5,6 +10,13 @@ import stat
 
 import magic
 
+
+# File flags (limited to 12 flags).
+F_TODEL = 0o0001  # file marked to be deleted
+
+# File type as in module stat, occupied range:
+# S_IFIFO  = 0o010000
+# S_IFSOCK = 0o160000
 
 # Constants for various content types.
 S_IFAUD = 0o0200000  # audio
@@ -24,6 +36,14 @@ S_IFPDF = 0o22000000
 S_IFEPB = 0o24000000
 S_IFFB2 = 0o26000000
 # S_IFRES = 0o76000000
+
+
+def F_FSET(mode):
+    """Returns file flag bits."""
+    try:
+        return mode & 0o7777
+    except TypeError:
+        raise TypeError('an integer is required')
 
 
 def S_IFCT(mode):
