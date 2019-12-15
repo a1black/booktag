@@ -32,3 +32,6 @@ class IsASymlinkError(FileError):
 
 class FileNotSupportedError(AppBaseError):
     """Raised when file cann't be processed by the application."""
+
+
+# vim: ts=4 sw=4 sts=4 et ai

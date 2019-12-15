@@ -22,3 +22,6 @@ def absnormpath_decr(func):
         return func(absnormpath(path), *args, **kwargs)
 
     return wrapper
+
+
+# vim: ts=4 sw=4 sts=4 et ai

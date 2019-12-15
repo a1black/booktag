@@ -1,9 +1,10 @@
 import os
 
+from booktag.utils import behavioral
 from booktag.utils import collections as appcollections
 
 
-class Node:
+class Node(behavioral.Observable):
     """Implementation of a vertex in an undirected rooted tree.
 
     Instance of this class can be used as a leaf node or a branch node.
@@ -21,6 +22,9 @@ class Node:
 
     def __str__(self):
         return str(self._value)
+
+    def __hash__(self):
+        return id(self)
 
     def __eq__(self, other):
         if isinstance(other, Node):
@@ -54,6 +58,11 @@ class Node:
             if key is None:
                 raise ValueError('unknown key function {0!r}'.format(key))
         return key
+
+    def get_root(self):
+        """Returns the root node."""
+        parent = self.get_parent()
+        return self if parent is None else parent.get_root()
 
     def get_children(self):
         return self._children
@@ -97,7 +106,10 @@ class Node:
         return self._value
 
     def set_value(self, value):
+        old_value = self._value
         self._value = value
+        # Event: ('update_value', old_value).
+        self.notify_observers('update_value', old_value)
 
     def index(self, node):
         """Returns first index of child node.
@@ -125,6 +137,8 @@ class Node:
             node.get_parent().remove(node)
         node.set_parent(self)
         self._children.append(node)
+        # Event: ('add_child', new_child)
+        self.notify_observers('add_child', node)
 
     def remove(self, node):
         """Removes `node` from the list of child nodes.
@@ -137,7 +151,12 @@ class Node:
         """
         child = self._children.pop(self.index(node))
         child.set_parent(None)
+        # Event: ('remove_child', removed_child)
+        self.notify_observers('removed_child', child)
         return child
+
+    def has_children(self):
+        return len(self._children) > 0
 
     def sort(self, key=None, reverse=False):
         """Recursive sorting of child nodes.
