@@ -54,11 +54,12 @@ class TreeWidget(urwid.WidgetWrap):
         super().__init__(None)
         self._node = node
         self._flagged = False
-        self._expanded = False
-        self._value_widget = None
-        self._expand_widget = None
-        self.set_expanded(True)
-        self._wrapped_widget = self.make_row_widget()
+        self._expanded = node.has_children()
+        self._expand_widget = self._node_widget = None
+        self.build_row_widget()
+
+    def highlightable(self):
+        return True
 
     def selectable(self):
         """Makes widget selectable."""
@@ -68,31 +69,8 @@ class TreeWidget(urwid.WidgetWrap):
         """Returns *flow* sizing mod."""
         return frozenset([urwid.FLOW])
 
-    def rows(self, size, focus=False):
-        """Overrides default to support ``None`` as wrapped widget."""
-        if self._wrapped_widget is None:
-            self._wrapped_widget = self.make_row_widget()
-        return super().rows(size, focus)
-
-    def render(self, size, focus=False):
-        """Overrides default to support ``None`` as wrapped widget."""
-        if self._wrapped_widget is None:
-            self._wrapped_widget = self.make_row_widget()
-        return super().render(size, focus)
-
-    def invalidate(self):
-        """Invalidates wrapped widget.
-
-        This method should be called then degree of node is changed.
-        """
-        self._w = None
-        self._expand_widget = None
-
     def get_node(self):
-        if isinstance(self._node, weakref.ReferenceType):
-            return self._node()
-        else:
-            return self._node
+        return self._node
 
     def get_indent(self):
         """Returns indent size to indicate node's depth."""
@@ -104,13 +82,10 @@ class TreeWidget(urwid.WidgetWrap):
 
     def set_flagged(self, state):
         """Changes selection state."""
-        if self.is_leaf():
-            oldvalue = self._flagged
-            self._flagged = bool(state)
-            if self._flagged != oldvalue:
-                self.update_flagged()
-        else:
-            self._flagged = False
+        oldvalue = self._flagged
+        self._flagged = bool(state)
+        if self._flagged != oldvalue:
+            self.update_flagged()
 
     def toggle_flagged(self):
         """Inverts selection state."""
@@ -122,76 +97,74 @@ class TreeWidget(urwid.WidgetWrap):
 
     def set_expanded(self, state):
         """Changes display state."""
-        if self.is_leaf():
-            self._expanded = False
-            self._expand_widget = None
-        else:
-            oldstate = self._expanded
-            self._expanded = bool(state)
-            if self._expanded != oldstate:
-                self.update_expanded()
+        oldstate = self._expanded
+        self._expanded = bool(state)
+        if self._expanded != oldstate:
+            self.update_expanded()
 
     def toggle_expanded(self):
-        """Inverts fold state."""
+        """Inverts display state."""
         self.set_expanded(not self.get_expanded())
 
     def update_flagged(self):
         """Updates visual selection of the row."""
-        if self._w is not None:
-            if self._flagged:
-                self._w.set_attr_map({None: 'highlighted_row'})
-                self._w.set_focus_map({None: 'highlighted_row_focus'})
-            else:
-                self._w.set_attr_map({None: 'node_row'})
-                self._w.set_focus_map({None: 'node_row_focus'})
+        if self._flagged:
+            self._w.set_attr_map({None: 'highlighted_row'})
+            self._w.set_focus_map({None: 'highlighted_row_focus'})
+        else:
+            self._w.set_attr_map({None: 'node_row'})
+            self._w.set_focus_map({None: 'node_row_focus'})
 
     def update_expanded(self):
-        """Updates widget that indicates node fold state."""
-        if self._expand_widget is not None:
+        """Updates widget that indicates node's fold state."""
+        if self._expand_widget:
             icon_widget = (self.collapse_icon
                            if self.get_expanded() else self.expand_icon)
             self._expand_widget.original_widget = icon_widget
 
     def update_value(self):
         """Updates node's displayed value."""
-        if self._value_widget is not None:
-            self._value_widget.set_text(self.get_node().get_value())
+        if self._node_widget:
+            self._node_widget.set_text(self.get_node().get_value())
 
-    def is_leaf(self):
-        """Returns True if node haven't got child nodes."""
-        return not self.get_node().has_children()
+    def rebuild(self):
+        """Destroys wrapped widget and creates a new one."""
+        self.build_row_widget()
 
-    def make_row_widget(self):
-        """Returns padded version of :meth:`.make_node_value_widget`."""
-        if self._value_widget is None:
-            self._value_widget = self.make_node_value_widget()
-        if self.is_leaf():
-            self._expand_widget = None
-            widget = self._value_widget
-        else:
+    def build_row_widget(self):
+        """Creates wrapped widget."""
+        self._node_widget = self.get_node_widget()
+        if self.get_node().has_children():
             self._expand_widget = urwid.WidgetPlaceholder(None)
             self.update_expanded()
-            widget = urwid.Columns(
-                [(1, self._expand_widget), self._value_widget],
-                dividechars=1, focus_column=0)
+            layout = [(1, self._expand_widget), self._node_widget]
+            widget = urwid.Columns(layout, dividechars=1)
+        else:
+            self._expand_widget = None
+            widget = self._node_widget
         widget = urwid.Padding(widget, width=urwid.RELATIVE_100,
                                left=self.get_indent())
-        return urwid.AttrMap(widget, 'node_row', focus_map='node_row_focus')
+        self._w = urwid.AttrMap(widget, None)
+        self.update_flagged()
 
-    def make_node_value_widget(self):
+    def get_node_widget(self):
         """Returns widget that displayes node value."""
         return urwid.Text(self.get_node().get_value(), wrap='ellipsis')
 
     def keypress(self, size, key):
         cmd = urwid.command_map[key]
-        if cmd == urwid.CURSOR_LEFT and self.get_expanded():
-            self.set_expanded(False)
-        elif cmd == command_map.SCALE_DOWN and self.get_expanded():
-            self.set_expanded(False)
-        elif cmd == urwid.CURSOR_RIGHT or cmd == command_map.SCALE_UP:
-            self.set_expanded(True)
-        elif cmd == urwid.ACTIVATE:
-            self.toggle_flagged()
+        if cmd == urwid.ACTIVATE and self.highlightable():
+            self.toggle_flagged()  # Toggle visual selection
+        elif cmd == command_map.SCALE_DOWN or cmd == urwid.CURSOR_LEFT:
+            if self.get_node().has_children() and self.get_expanded():
+                self.set_expanded(False)  # Hide list of child nodes
+            else:
+                return key  # Leaf node or list of child nodes is hidden
+        elif cmd == command_map.SCALE_UP or cmd == urwid.CURSOR_RIGHT:
+            if self.get_node().has_children():
+                self.set_expanded(True)  # Show list of child nodes
+            else:
+                return key  # Node is a leaf, forward to a tree widget
         else:
             return key
 
@@ -203,7 +176,8 @@ class TreeWidget(urwid.WidgetWrap):
         return False
 
     flagged = property(get_flagged, set_flagged, doc="True if highlighted.")
-    expanded = property(get_expanded, set_expanded, doc="True if expanded.")
+    expanded = property(get_expanded, set_expanded,
+                        doc="True if list of child nodes is shown.")
 
 
 class TreeWalker(urwid.ListWalker, behavioral.Observer):
@@ -217,17 +191,12 @@ class TreeWalker(urwid.ListWalker, behavioral.Observer):
         self._widget_cache = weakref.WeakKeyDictionary()
         self.focus = focus_node
 
-    def _invalidate_widget(self, tree_node):
-        """Expires widget mapped to the `tree_node`."""
-        try:
-            self._widget_cache[tree_node].invalidate()
-        except KeyError:
-            # There is no widget to expire.
-            pass
-
     def _produce_widget(self, tree_node):
-        weak_node = weakref.proxy(tree_node)
-        return TreeWidget(weak_node)
+        """Returns new widget for a node object."""
+        self._subscribe_to_observable(tree_node)
+        widget = TreeWidget(weakref.proxy(tree_node))
+        self._widget_cache[tree_node] = widget
+        return widget
 
     def _next_widget(self, tree_node, godeep=True):
         """Returns next visible node after `tree_node`."""
@@ -259,20 +228,23 @@ class TreeWalker(urwid.ListWalker, behavioral.Observer):
                 return self._prev_widget(prev_sibling, True)
 
     def listen_observable(self, subject, event, *args, **kwargs):
+        """Updates widgets of modified node objects."""
         widget = self.get_widget(subject)
-        if event == 'add_child' or event == 'remove_child':
+        if event == 'update_value' and widget is not None:
+            widget.update_value()
+        elif event == 'add_child':
             child_widget = self.get_widget(args[0]) if args else None
-        else:
-            child_widget = None
-        # Invalidate updated node.
-        if widget is not None:
-            if event == 'update_value':
-                widget.update_value()
-            else:
-                widget.invalidate()
-        # Invalidate child node.
-        if child_widget is not None:
-            child_widget.invalidate()
+            if widget is not None and subject.get_degree() == 1:
+                widget.rebuild()
+            if child_widget is not None:
+                child_widget.rebuild()
+        elif event == 'remove_child':
+            child_widget = self.get_widget(args[0]) if args else None
+            if widget is not None and subject.get_degree() == 0:
+                widget.rebuild()
+            if child_widget is not None:
+                child_widget.rebuild()
+        self._modified()
 
     def get_focus(self):
         """Returns a `(focus widget, focus position)` tuple."""
@@ -291,7 +263,6 @@ class TreeWalker(urwid.ListWalker, behavioral.Observer):
             widget = self._widget_cache[tree_node]
         except KeyError:
             widget = self._produce_widget(tree_node)
-            self._subscribe_to_observable(tree_node)
         return widget
 
     def get_next(self, tree_node):
@@ -321,16 +292,16 @@ class TreeWalker(urwid.ListWalker, behavioral.Observer):
     def get_selected(self):
         """Returns list of selected nodes."""
         selected = []
-        for widget in self._widget_cache.values():
-            if widget.get_node() is not None and widget.get_flagged():
-                selected.append(widget.get_node())
+        for node, widget in self._widget_cache.items():
+            if widget.flagged:
+                selected.append(node)
         return selected
 
     def clear_selected(self):
         """Removes visual selection."""
         for widget in self._widget_cache.values():
-            if widget.get_node() is not None:
-                widget.set_flagged(False)
+            widget.set_flagged(False)
+        self._modified()
 
     widget = property(get_widget, doc="Display widget for the node in focus.")
 
@@ -386,6 +357,5 @@ class TreeListBox(urwid.ListBox):
     def _keypress_max_right(self, size):
         """Moves to the last visible node."""
         self.change_focus(size, self.body.end(), size[1] - 1)
-
 
 # vim: ts=4 sw=4 sts=4 et ai
