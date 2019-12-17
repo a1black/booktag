@@ -1,6 +1,22 @@
 import weakref
 
 
+class ChainMixin:
+    """Interface for implementing *Chain of Responsibility* pattern."""
+
+    def getnext(self):
+        """Returns next link in the chain."""
+        return getattr(self, '_chain_next', None)
+
+    def setnext(self, next_link):
+        """Adds new link to the end of the chain."""
+        follow = self.getnext()
+        if follow is None:
+            self._chain_next = next_link
+        else:
+            follow.setnext(next_link)
+
+
 class Observer:
     """Interface for implementing *Observer* pattern."""
 
