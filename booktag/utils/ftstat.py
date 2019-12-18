@@ -13,6 +13,7 @@ import magic
 
 # File flags (limited to 12 flags).
 F_TODEL = 0o0001  # file marked to be deleted
+f_NOSUP = 0o0002  # file format is not supported
 
 # File type as in module stat, occupied range:
 # S_IFIFO  = 0o010000
