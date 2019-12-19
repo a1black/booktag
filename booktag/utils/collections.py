@@ -75,13 +75,14 @@ class PropDict(MutableMapping, AttributeDictMixin):
 class FiltrableDict(MutableMapping, AttributeDictMixin):
     """Dictionary-like structure where values converted to a given type."""
 
-    def __init__(self, filters, **kwargs):
+    def __init__(self, filters, data=None, **kwargs):
         if not isinstance(filters, dict):
             raise TypeError('{0}() expected filters be a dict, got {1}'.format(
                 type(self).__name__, type(filters).__name__))
         self.__dict__.update(_data={}, _filters=filters)
-        for key, value in kwargs.items():
-            self[key] = value
+        if data:
+            self.update(data)
+        self.update(kwargs)
 
     def __len__(self):
         return len(self._data)
@@ -93,6 +94,7 @@ class FiltrableDict(MutableMapping, AttributeDictMixin):
         return self._data[key]
 
     def __setitem__(self, key, value):
+        """Applies filter object to the value before saving it."""
         try:
             if key in self._filters:
                 self._data[key] = self._filters[key](value)

@@ -14,6 +14,7 @@ from mutagen import (File, FileType, MutagenError, flac, mp3, mp4, wavpack,
                      id3, ogg, oggflac)
 
 from booktag import exceptions
+from booktag.app import tags
 from booktag.utils import ftstat
 
 
@@ -153,58 +154,68 @@ class MP3Read(MapRule):
         super().__init__(from_, to, id3_read, *transform, **kwargs)
 
 
-MP3ReadMapping = [MP3Read('TALB', 'album', join_list, sep=' '),
-                  MP3Read('TDRC', 'date', zeroindex_get, to_int),
-                  MP3Read('GRP1', 'grouping', zeroindex_get),
-                  MP3Read('TIT1', 'grouping', zeroindex_get),
-                  MP3Read('TIT2', 'title', join_list, sep=' '),
-                  MP3Read('TPE1', 'artist', split_values, sep=','),
-                  MP3Read('TPE2', 'albumartist', split_values, sep=','),
-                  MP3Read('TCOM', 'composer', split_values, sep=','),
-                  MP3Read('TCON', 'genre', split_values, sep=(',', '/')),
-                  MP3Read('TPUB', 'label', zeroindex_get),
-                  pair_read('TRCK', 'tracknumber', 'tracktotal', 'mp3'),
-                  pair_read('TPOS', 'discnumber', 'disctotal', 'mp3')]
+MP3ReadMapping = [
+    MP3Read('TALB', tags.Names.ALBUM, join_list, sep=' '),
+    MP3Read('TDRC', tags.Names.DATE, zeroindex_get, to_int),
+    MP3Read('GRP1', tags.Names.GROUPING, zeroindex_get),
+    MP3Read('TIT1', tags.Names.GROUPING, zeroindex_get),
+    MP3Read('TIT2', tags.Names.TITLE, join_list, sep=' '),
+    MP3Read('TPE1', tags.Names.ARTIST, split_values, sep=(',', '&')),
+    MP3Read('TPE2', tags.Names.ALBUMARTIST, split_values, sep=(',', '&')),
+    MP3Read('TCOM', tags.Names.COMPOSER, split_values, sep=','),
+    MP3Read('TCON', tags.Names.GENRE, split_values, sep=(',', '/')),
+    MP3Read('TPUB', tags.Names.LABEL, zeroindex_get),
+    pair_read('TRCK', tags.Names.TRACKNUM, tags.Names.TRACKTOTAL, 'mp3'),
+    pair_read('TPOS', tags.Names.DISCNUM, tags.Names.DISCTOTAL, 'mp3')
+]
 # Mappings for MPEG-4 Audio tagging container.
-MP4ReadMapping = [MapRule('\xa9alb', 'album', join_list, sep=' '),
-                  MapRule('\xa9day', 'date', zeroindex_get, to_int),
-                  MapRule('\xa9grp', 'grouping', zeroindex_get),
-                  MapRule('\xa9nam', 'title', join_list, sep=' '),
-                  MapRule('\xa9ART', 'artist', split_values, sep=','),
-                  MapRule('aART', 'albumartist', split_values, sep=','),
-                  MapRule('\xa9wrt', 'composer', split_values, sep=','),
-                  MapRule('\xa9gen', 'genre', split_values, sep=(',', '/')),
-                  pair_read('trkn', 'tracknumber', 'tracktotal', 'mp4'),
-                  pair_read('disk', 'discnumber', 'disctotal', 'mp4')]
+MP4ReadMapping = [
+    MapRule('\xa9alb', tags.Names.ALBUM, join_list, sep=' '),
+    MapRule('\xa9day', tags.Names.DATE, zeroindex_get, to_int),
+    MapRule('\xa9grp', tags.Names.GROUPING, zeroindex_get),
+    MapRule('\xa9nam', tags.Names.TITLE, join_list, sep=' '),
+    MapRule('\xa9ART', tags.Names.ARTIST, split_values, sep=(',', '&')),
+    MapRule('aART', tags.Names.ALBUMARTIST, split_values, sep=(',', '&')),
+    MapRule('\xa9wrt', tags.Names.COMPOSER, split_values, sep=(',', '&')),
+    MapRule('\xa9gen', tags.Names.GENRE, split_values, sep=(',', '/')),
+    pair_read('trkn', tags.Names.TRACKNUM, tags.Names.TRACKTOTAL, 'mp4'),
+    pair_read('disk', tags.Names.DISCNUM, tags.Names.DISCTOTAL, 'mp4')
+]
 # Label MP4FreeForm('LABEL', 'UTF-8')
 # Mappings for Ogg Vorbis tagging container.
-OggReadMapping = [MapRule('album', 'album', join_list, sep=' '),
-                  MapRule('date', 'date', zeroindex_get, to_int),
-                  MapRule('grouping', 'grouping', zeroindex_get),
-                  MapRule('title', 'title', join_list, sep=' '),
-                  MapRule('artist', 'artist', split_values, sep=','),
-                  MapRule('albumartist', 'albumartist', split_values, sep=','),
-                  MapRule('composer', 'composer', split_values, sep=','),
-                  MapRule('genre', 'genre', split_values, sep=(',', '/')),
-                  MapRule('label', 'label', zeroindex_get),
-                  MapRule('tracknumber', 'tracknumber', zeroindex_get, to_int),
-                  MapRule('tracktotal', 'tracktotal', zeroindex_get, to_int),
-                  MapRule('totaltracks', 'tracktotal', zeroindex_get, to_int),
-                  MapRule('discnumber', 'discnumber', zeroindex_get, to_int),
-                  MapRule('disctotal', 'disctotal', zeroindex_get, to_int),
-                  MapRule('totaldisks', 'disctotal', zeroindex_get, to_int)]
+OggReadMapping = [
+    MapRule('album', tags.Names.ALBUM, join_list, sep=' '),
+    MapRule('date', tags.Names.DATE, zeroindex_get, to_int),
+    MapRule('grouping', tags.Names.GROUPING, zeroindex_get),
+    MapRule('title', tags.Names.TITLE, join_list, sep=' '),
+    MapRule('artist', tags.Names.ARTIST, split_values, sep=(',', '&')),
+    MapRule('albumartist', tags.Names.ALBUMARTIST, split_values,
+            sep=(',', '&')),
+    MapRule('composer', tags.Names.COMPOSER, split_values, sep=(',', '&')),
+    MapRule('genre', tags.Names.GENRE, split_values, sep=(',', '/')),
+    MapRule('label', tags.Names.LABEL, zeroindex_get),
+    MapRule('tracknumber', tags.Names.TRACKNUM, zeroindex_get, to_int),
+    MapRule('tracktotal', tags.Names.TRACKTOTAL, zeroindex_get, to_int),
+    MapRule('totaltracks', tags.Names.TRACKTOTAL, zeroindex_get, to_int),
+    MapRule('discnumber', tags.Names.DISCNUM, zeroindex_get, to_int),
+    MapRule('disctotal', tags.Names.DISCTOTAL, zeroindex_get, to_int),
+    MapRule('totaldisks', tags.Names.DISCTOTAL, zeroindex_get, to_int)
+]
 # Mappings for APEv2 tagging container.
-WavReadMapping = [MapRule('Album', 'album', join_list, sep=' '),
-                  MapRule('Year', 'date', zeroindex_get, to_int),
-                  MapRule('Grouping', 'grouping', zeroindex_get),
-                  MapRule('Title', 'title', join_list, sep=' '),
-                  MapRule('Artist', 'artist', split_values, sep=','),
-                  MapRule('Album Artist', 'albumartist', split_values, sep=','),
-                  MapRule('Composer', 'composer', split_values, sep=','),
-                  MapRule('Genre', 'genre', split_values, sep=(',', '/')),
-                  MapRule('Label', 'label', zeroindex_get),
-                  pair_read('Track', 'tracknumber', 'tracktotal', 'wav'),
-                  pair_read('Disc', 'discnumber', 'disctotal', 'wav')]
+WavReadMapping = [
+    MapRule('Album', tags.Names.ALBUM, join_list, sep=' '),
+    MapRule('Year', tags.Names.DATE, zeroindex_get, to_int),
+    MapRule('Grouping', tags.Names.GROUPING, zeroindex_get),
+    MapRule('Title', tags.Names.TITLE, join_list, sep=' '),
+    MapRule('Artist', tags.Names.ARTIST, split_values, sep=(',', '&')),
+    MapRule('Album Artist', tags.Names.ALBUMARTIST, split_values,
+            sep=(',', '&')),
+    MapRule('Composer', tags.Names.COMPOSER, split_values, sep=(',', '&')),
+    MapRule('Genre', tags.Names.GENRE, split_values, sep=(',', '/')),
+    MapRule('Label', tags.Names.LABEL, zeroindex_get),
+    pair_read('Track', tags.Names.TRACKNUM, tags.Names.TRACKTOTAL, 'wav'),
+    pair_read('Disc', tags.Names.DISCNUM, tags.Names.DISCTOTAL, 'wav')
+]
 
 
 def _get_mapping(audiofile, isread=True):
@@ -238,7 +249,7 @@ def open(path):
 
 def read_meta(path, **kwargs):
     """Returns a dictionary that contains audio stream properties and tags."""
-    audiofile, metadata = open(path), {}
+    audiofile, metadata = open(path), tags.Tags()
     mapping = _get_mapping(audiofile, True)
     for reader in mapping:
         reader(audiofile.tags, metadata, **kwargs)
