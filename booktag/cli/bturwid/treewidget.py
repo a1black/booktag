@@ -30,14 +30,13 @@ import urwid
 
 from booktag.cli import command_map
 from booktag.utils import behavioral
-from booktag.utils import tree
 
 
 class TreeWidget(urwid.WidgetWrap):
     """A widget representing node in a rooted tree.
 
     Args:
-        node (:class:`tree.Node`): Weak reference to displayed node.
+        node: Weak reference to displayed node.
 
     Attributes:
         indent_cols (int): Number of screen columns per node's depth.

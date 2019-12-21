@@ -3,7 +3,6 @@ file format and application specific flags.
 
 This module is simular to :module:`stat`.
 """
-import errno
 import os
 import re
 import stat
@@ -179,17 +178,16 @@ def ft_extension(mode):
         return ('.pdf',)
 
 
-def ft_mode(path):
+def ft_mode(path, stats=None):
     """Returns integer that describes file type and file format."""
-    if not os.path.exists(path):
-        raise FileNotFoundError(
-            errno.ENOENT, 'No such file or directory', os.fspath(path))
+    if stats is None:
+        stats = os.stat(path, follow_symlinks=False)
     mode = 0
-    if os.path.islink(path):
+    if stat.S_ISLNK(stats.st_mode):
         mode |= stat.S_IFLNK
-    elif os.path.isdir(path):
+    elif stat.S_ISDIR(stats.st_mode):
         mode |= stat.S_IFDIR
-    elif os.path.isfile(path):
+    elif stat.S_ISREG(stats.st_mode):
         mode |= stat.S_IFREG
         mime = magic.from_file(path, mime=True)
         # Determine content type.

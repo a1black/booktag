@@ -96,18 +96,22 @@ _filters = {
 }
 
 
-class Tags(collections.FiltrableDict):
+class Tags(collections.UserDict):
     """Audio file tag container."""
 
     def __init__(self, data=None, **kwargs):
-        super().__init__(_filters, data, **kwargs)
+        super().__init__(data, **kwargs)
+        self._filters = _filters
 
     def __setitem__(self, key, value):
+        """Applies filter object to the value before saving it."""
         try:
             if value is None:
                 del self[key]
+            elif key in self._filters:
+                self._data[key] = self._filters[key](value)
             else:
-                super().__setitem__(key, value)
+                self._data[key] = value
         except KeyError:
             # We do not need None is dictionary.
             pass
