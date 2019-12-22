@@ -45,7 +45,7 @@ class FileNode(collections.TreeNode, os.PathLike, behavioral.Observable):
     """Vertex that implements :class:`os.PathLike` interface."""
 
     def __init__(self, value, **kwargs):
-        super().__init__(value, **kwargs)
+        super().__init__(value)
         self._props = PropDict(self, kwargs)
 
     def __fspath__(self):

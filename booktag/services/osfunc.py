@@ -17,12 +17,15 @@ class _DirInfo:
     """
 
     def __init__(self, path, stat):
-        self.path = path
+        self.path = os.fspath(path)
         self.parent, self.name = os.path.split(path)
         self.stat = stat
 
     def __fspath__(self):
         return self.path
+
+    def __eq__(self, other):
+        return self.path == other
 
     def is_dir(self, **kwargs):
         return stat.S_ISDIR(self.stat.st_mode)
