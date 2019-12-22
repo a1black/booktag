@@ -50,7 +50,7 @@ def save(image):
         return buffer
 
 
-def read_meta(image):
+def read_meta(image, **kwargs):
     """Returns image attributes.
 
     Args:

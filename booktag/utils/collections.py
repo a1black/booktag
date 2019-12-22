@@ -60,13 +60,6 @@ class UserDict(MutableMapping, AttributeDictMixin):
     def clear(self):
         self._data.clear()
 
-    @classmethod
-    def fromkeys(cls, iterable, value=None):
-        d = cls()
-        for key in iterable:
-            d[key] = value
-        return d
-
 
 class TreeNode:
     """Implementation of a vertex in a rooted tree.
@@ -74,7 +67,7 @@ class TreeNode:
     Instance of this class can be used as a leaf node or a branch node.
     """
 
-    def __init__(self, value, **kwargs):
+    def __init__(self, value):
         self._value = value
         self._parent = None
         self._children = []
