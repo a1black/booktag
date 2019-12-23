@@ -30,6 +30,13 @@ class IsASymlinkError(FileError):
         super().__init__(path, 'Symbol link encountered', errno.EAGAIN)
 
 
+class DirectoryIsEmpty(FileError):
+    """Raised when an operation is requested on an empty directory."""
+
+    def __init__(self, path):
+        super().__init__(path, 'Directory is empty', errno.ENODATA)
+
+
 class FileNotSupportedError(AppBaseError):
     """Raised when file cann't be processed by the application."""
 

@@ -18,6 +18,10 @@ def open(image):
 
     Args:
         image: A filename or the raw image data.
+
+    Raises:
+        :exc:`exceptions.FileIsTrashError`: Image can be a malicious file.
+        :exc:`exceptions.FileNotSupportedError`: Unknown content type.
     """
     try:
         if isinstance(image, Image.Image):

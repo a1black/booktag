@@ -100,8 +100,14 @@ class Tags(collections.UserDict):
     """Audio file tag container."""
 
     def __init__(self, data=None, **kwargs):
-        super().__init__(data, **kwargs)
-        self._filters = _filters
+        super().__init__()
+        self.__dict__.update(_filter=_filters)
+        if data is not None:
+            self.update(data)
+        self.update(kwargs)
+
+    def __copy__(self):
+        return self.__class__(self._data)
 
     def __setitem__(self, key, value):
         """Applies filter object to the value before saving it."""

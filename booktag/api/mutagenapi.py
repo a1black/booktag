@@ -402,20 +402,30 @@ WavWriteMapping = [
 
 
 def _get_mapping(audiofile, isread=True):
+    """Returns a list of rules to move values from one container to another.
+
+    Raises:
+        :exc:`exceptions.FileNotSupportedError`: If mapping not defined.
+    """
     if isinstance(audiofile, mp3.MP3):
-        return MP3ReadMapping if isread else []
+        return MP3ReadMapping if isread else MP3WriteMapping
     elif isinstance(audiofile, mp4.MP4):
-        return MP4ReadMapping if isread else []
+        return MP4ReadMapping if isread else MP4WriteMapping
     elif isinstance(audiofile, ogg.OggFileType):
-        return OggReadMapping if isread else []
+        return OggReadMapping if isread else OggWriteMapping
     elif isinstance(audiofile, wavpack.WavPack):
-        return WavReadMapping if isread else []
+        return WavReadMapping if isread else WavWriteMapping
     else:
         raise exceptions.FileNotSupportedError
 
 
 def open(path):
-    """Returns Mutagen FileType that contains audio stream info and tags."""
+    """Returns Mutagen FileType that contains audio stream info and tags.
+
+    Raises:
+        TypeError: Argument of invalid type.
+        :exc:`exceptions.FileNotSupportedError`: Unknown file content.
+    """
     try:
         fileobj = File(path)
         if fileobj is None:

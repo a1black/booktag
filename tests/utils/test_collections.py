@@ -1,3 +1,4 @@
+import types
 import unittest.mock as mock
 
 import pytest
@@ -136,6 +137,46 @@ class TestTreeNode:
         root = makenode('root', 1, 2, 3)
         assert root.get_depth() == 0
         assert root[0].get_depth() == 1
+
+
+class TestGetDotKeyProxy:
+    @pytest.fixture
+    def dct(self):
+        return {'level1': {'level2': {'level3': 'value'}}}
+
+    def test__getattr__expect_proxy_request_to_wrapped_object(self):
+        data, prop = mock.MagicMock(), mock.PropertyMock(return_value=1)
+        type(data).prop = prop
+        assert collections.GetDotKeyProxy(data).prop
+        prop.assert_called_once()
+
+    def test__setattr__expect_proxy_request_to_wrapped_object(self):
+        data, prop = mock.MagicMock(), mock.PropertyMock(return_value=1)
+        type(data).prop = prop
+        collections.GetDotKeyProxy(data).prop = 'new_value'
+        prop.assert_called_once_with('new_value')
+
+    def test__getitem__expect_value_from_nested_dictionary(self, dct):
+        key = 'level1.level2.level3'
+        assert collections.GetDotKeyProxy(dct)[key] == 'value'
+
+    def test__getitem__where_value_in_the_path_not_dict_expect_KeyError(
+            self, dct):
+        key = 'level1.level2.level3.level4'
+        with pytest.raises(KeyError, match=key):
+            collections.GetDotKeyProxy(dct)[key]
+
+    def test__getitem__where_key_not_exist_expect_KeyError(self, dct):
+        key = 'level1.notexist'
+        with pytest.raises(KeyError, match=key):
+            collections.GetDotKeyProxy(dct)[key]
+
+    def test__setitem__expect_set_value_and_create_nested_dict_if_neded(self):
+        data = {'level1': None}
+        key, value = 'level1.level2.level3', 'value'
+        expected = {'level1': {'level2': {'level3': value}}}
+        collections.GetDotKeyProxy(data)[key] = value
+        assert data == expected
 
 
 # vim: ts=4 sw=4 sts=4 et ai

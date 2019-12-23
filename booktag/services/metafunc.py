@@ -1,3 +1,7 @@
+"""
+TODO:
+    * :func:`.write_audio_meta`: Write handler in case if tags is None
+"""
 import functools
 
 from booktag import exceptions
@@ -5,6 +9,19 @@ from booktag.api import mutagenapi
 from booktag.api import pillowapi
 from booktag.app import filenode
 from booktag.utils import ftstat
+
+
+def write_audio_meta(node, **kwargs):
+    """Writes mapping of audio tags into the file `node`.
+
+    Args:
+        audiofile (:class:`os.PathLike`): A tree node object.
+    """
+    try:
+        mutagenapi.write_meta(node, node.props.tags, **kwargs)
+    except exceptions.FileNotSupportedError:
+        ft_mode = getattr(node, 'ft_mode', 0) | ftstat.F_NOSUP
+        node.props.update(ft_mode=ft_mode)
 
 
 def read_dir_meta(dirname, **kwargs):
@@ -61,12 +78,17 @@ def read_image_meta(imagefile, **kwargs):
         return dict(ft_flag=ft_mode)
 
 
-def is_imagenode(node):
+def is_dir_node(node):
+    """Tests if `node` is a directory."""
+    return ftstat.S_ISDIR(getattr(node, 'ft_mode', 0))
+
+
+def is_image_node(node):
     """Tests if `node` is an image file."""
     return ftstat.S_ISIMG(getattr(node, 'ft_mode', 0))
 
 
-def is_audionode(node):
+def is_audio_node(node):
     """Tests if `node` is an audio file."""
     return ftstat.S_ISAUD(getattr(node, 'ft_mode', 0))
 

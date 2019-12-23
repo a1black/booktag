@@ -231,4 +231,59 @@ class TreeNode:
                      doc="Data stored by the node.")
 
 
+class GetDotKeyProxy:
+    """Class provides access to nested dictionaries using composite key.
+
+    Composite key is a sequence of keys separeted by a dot.
+    """
+
+    def __init__(self, dct):
+        self.__dict__.update(_data=dct)
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __getattr__(self, name):
+        return getattr(self._data, name)
+
+    def __setattr__(self, name, value):
+        setattr(self._data, name, value)
+
+    def __getitem__(self, key):
+        focus = self._data
+        path = []
+        try:
+            for subkey in key.split('.'):
+                path.append(subkey)
+                focus = focus[subkey]
+            return focus
+        except AttributeError:
+            return self._data[key]
+        except (KeyError, TypeError, ValueError):
+            raise KeyError('.'.join(path))
+
+    def __setitem__(self, key, value):
+        child_key, *descent = key.split('.')
+        parent, child = self._data, self._data[child_key]
+        for subkey in descent:
+            try:
+                child[subkey]
+            except KeyError:
+                child[subkey] = child.__class__()
+            except TypeError:
+                child = parent.__class__()
+                child[subkey] = parent.__class__()
+                parent[child_key] = child
+            parent = child
+            child = child[subkey]
+            child_key = subkey
+        parent[child_key] = value
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+
 # vim: ts=4 sw=4 sts=4 et ai

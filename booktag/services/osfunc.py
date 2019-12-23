@@ -65,6 +65,25 @@ def absrealpath(path):
     return os.path.realpath(absnormpath(path))
 
 
+def is_readable(path, stats=None):
+    """Tests readability of `path`.
+
+    Raises:
+        PermissionError: If check is failed.
+    """
+    if stats is None:
+        stats = os.stat(path, follow_symlinks=False)
+    if stat.S_ISREG(stats.st_mode) or stat.S_ISDIR(stats.st_mode):
+        check_mode = os.R_OK
+        mode = (stats.st_mode & 0o777) | stat.S_IREAD
+        if not os.access(path, check_mode):
+            try:
+                os.chmod(path, mode, follow_symlinks=False)
+            except PermissionError:
+                raise PermissionError(errno.EACCES, 'Permission denied', path)
+    return True
+
+
 def is_writable(path, stats=None):
     """Tests writability of `path`.
 
