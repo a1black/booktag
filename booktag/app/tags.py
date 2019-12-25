@@ -101,7 +101,7 @@ class Tags(collections.UserDict):
 
     def __init__(self, data=None, **kwargs):
         super().__init__()
-        self.__dict__.update(_filter=_filters)
+        self.__dict__.update(_filters=_filters)
         if data is not None:
             self.update(data)
         self.update(kwargs)

@@ -30,11 +30,18 @@ class IsASymlinkError(FileError):
         super().__init__(path, 'Symbol link encountered', errno.EAGAIN)
 
 
-class DirectoryIsEmpty(FileError):
+class DirectoryIsEmptyError(FileError):
     """Raised when an operation is requested on an empty directory."""
 
     def __init__(self, path):
         super().__init__(path, 'Directory is empty', errno.ENODATA)
+
+
+class OutdatedFileStatError(FileError):
+    """Raised then process no longer able operate on in-memory file tree."""
+
+    def __init__(self, path):
+        super().__init__(path, 'File stat is out of sync', errno.EAGAIN)
 
 
 class FileNotSupportedError(AppBaseError):

@@ -6,15 +6,22 @@ from booktag.services import osfunc
 from booktag.utils import ftstat
 
 
+def make_filenode(entry):
+    """Returns a new instance of node in the file tree."""
+    st_size = getattr(entry.stat, 'st_size', 0)
+    ft_mode = ftstat.ft_mode(entry.path, entry.stat)
+    osfunc.is_readable(entry.path, entry.stats)
+    if ftstat.S_ISDIR(ft_mode) or ftstat.S_ISAUD(ft_mode):
+        osfunc.is_writable(entry.path, entry.stat)
+    return filenode.FileNode(entry.path, st_size=st_size, ft_mode=ft_mode)
+
+
 def build_filetree(path, *, maxdepth=None):
     """Returns a file tree with root at `path`.
 
     Args:
         path (str): A pathname.
         maxdepth(:obj:`int`, optional): Number of levels to descend.
-
-    Raises:
-        exceptions.IsASymlinkError: If `path` is a symbol link.
     """
 
     def get_depth(path):
@@ -26,22 +33,14 @@ def build_filetree(path, *, maxdepth=None):
             nth -= 1
         return node
 
-    def make_node(entry):
-        st_size = getattr(entry.stat, 'st_size', 0)
-        ft_mode = ftstat.ft_mode(entry.path, entry.stat)
-        osfunc.is_readable(entry.path, entry.stats)
-        if ftstat.S_ISDIR(ft_mode) or ftstat.S_ISAUD(ft_mode):
-            osfunc.is_writable(entry.path, entry.stat)
-        return filenode.FileNode(entry.path, st_size=st_size, ft_mode=ft_mode)
-
     if os.path.islink(path):
-        raise exceptions.IsASymlinkError(path)
+        return make_filenode(path)
     tree_iter = osfunc.recursive_scandir(osfunc.absrealpath(path),
                                          maxdepth=maxdepth)
-    focus = make_node(next(tree_iter))
+    focus = make_filenode(next(tree_iter))
     base_depth = get_depth(focus.get_value())
     for child in tree_iter:
-        child_node = make_node(child)
+        child_node = make_filenode(child)
         child_depth = get_depth(child.path) - base_depth
         focus_depth = focus.get_depth()
         if child_depth > focus_depth:

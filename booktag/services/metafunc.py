@@ -2,8 +2,6 @@
 TODO:
     * :func:`.write_audio_meta`: Write handler in case if tags is None
 """
-import functools
-
 from booktag import exceptions
 from booktag.api import mutagenapi
 from booktag.api import pillowapi
@@ -78,6 +76,10 @@ def read_image_meta(imagefile, **kwargs):
         return dict(ft_flag=ft_mode)
 
 
+def get_filetype(node):
+    return ftstat.S_IFMT(getattr(node, 'ft_mode', 0))
+
+
 def is_dir_node(node):
     """Tests if `node` is a directory."""
     return ftstat.S_ISDIR(getattr(node, 'ft_mode', 0))
@@ -101,16 +103,6 @@ def is_supported(node):
 def is_deleted(node):
     """Tests if `node` is not marked for deletion."""
     return not(getattr(node, 'ft_mode', 0) & ftstat.F_TODEL)
-
-
-def not_decorator(func):
-    """Returns wrapper function that negates result of `func`."""
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return not func(*args, **kwargs)
-
-    return wrapper
 
 
 # vim: ts=4 sw=4 sts=4 et ai

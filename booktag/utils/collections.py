@@ -263,9 +263,8 @@ class GetDotKeyProxy:
             raise KeyError('.'.join(path))
 
     def __setitem__(self, key, value):
-        child_key, *descent = key.split('.')
-        parent, child = self._data, self._data[child_key]
-        for subkey in descent:
+        parent, child = self._data, self._data
+        for subkey in key.split('.'):
             try:
                 child[subkey]
             except KeyError:

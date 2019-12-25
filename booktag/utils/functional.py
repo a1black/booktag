@@ -1,6 +1,36 @@
 """Functional style utilities."""
 import functools
 import os
+import re
+
+
+def difference(base, *iterables):
+    """Returns a list that contains the difference of two or more iterables."""
+    if not len(iterables):
+        raise TypeError("difference() missing 1 positional argument: "
+                        "'iterables'")
+    diff = []
+    for item in base:
+        for control in iterables:
+            if item in control:
+                break
+        else:
+            diff.append(item)
+    return diff
+
+
+def intersection(base, *iterables):
+    """
+    Returns a list that contains the intersection of two or more iterbales.
+    """
+    inter = []
+    for item in base:
+        for control in iterables:
+            if item not in control:
+                break
+        else:
+            inter.append(item)
+    return inter
 
 
 def rstrip(iterable, function=None):
@@ -35,6 +65,26 @@ def lstrip(iterable, function=None):
     else:
         index = len(values)
     return iterable[index:]
+
+
+def not_decorator(func):
+    """Returns wrapper function that negates result of `func`."""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return not func(*args, **kwargs)
+
+    return wrapper
+
+
+def camel_to_snake(name):
+    """Returns a string converted to snake case."""
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+
+def snake_to_camel(name):
+    return ''.join(x.capitalize() for x in name.split('_'))
 
 
 # vim: ts=4 sw=4 sts=4 et ai
