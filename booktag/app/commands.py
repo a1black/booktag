@@ -42,6 +42,23 @@ def update_tree(config, tree):
     return tree
 
 
+def validate_tree(config, tree):
+    """Varifies that file tree can be processed by the application."""
+    if metafunc.is_symlink_node(tree):
+        raise exceptions.IsASymlinkError(tree)
+    count_audio = functional.len(
+        treefunc.filter_tree(tree, metafunc.is_audio_node))
+    count_supported = functional.len(treefunc.filter_tree(
+        tree, metafunc.is_audio_node, metafunc.is_supported,
+        functional.not_decorator(metafunc.is_deleted)))
+    if count_audio == 0:
+        raise exceptions.NotAudioContentError('No audio files found')
+    elif (count_supported / count_audio) * 100 <= 50:
+        raise exceptions.NotAudioContentError(
+            'Too much unsupported audio files: {0}/{1}'.format(
+                (count_audio - count_supported), count_audio))
+
+
 def apply_audio_tags(config, tree, tags):
     """Updates files in the `tree` with values from `meta`."""
     node_filter = (metafunc.is_audio_node, metafunc.is_supported,

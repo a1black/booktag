@@ -51,3 +51,23 @@ def test_lstrip_where_false_items_on_both_ends_expect_left_trimmed():
     data = [False, False, True, False, False]
     striped = functional.lstrip(data)
     assert striped == [True, False, False]
+
+
+def test_camel_to_snake():
+    assert functional.camel_to_snake('ACamelCase') == 'a_camel_case'
+
+
+def test_snake_to_camel():
+    assert functional.snake_to_camel('a_snake_case') == 'ASnakeCase'
+
+
+def test_difference():
+    base = ['a', 'b', 'c', 'd']
+    iter1, iter2 = ['a', 'c', 'e'], ['d', 'f', 'g']
+    assert functional.difference(base, iter1, iter2) == ['b']
+
+
+def test_intersection():
+    base = ['b', 'c', 'd']
+    iter1, iter2 = ['a', 'b', 'c'], ['b', 'c', 'd']
+    assert functional.intersection(base, iter1, iter2) == ['b', 'c']

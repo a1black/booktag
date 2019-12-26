@@ -80,6 +80,16 @@ def get_filetype(node):
     return ftstat.S_IFMT(getattr(node, 'ft_mode', 0))
 
 
+def is_symlink_node(node):
+    """Tests if `node` is a symbolic link."""
+    return ftstat.S_ISLNK(getattr(node, 'ft_mode', 0))
+
+
+def is_file_node(node):
+    """Tests if `node` is a regular file."""
+    return ftstat.S_ISREG(getattr(node, 'ft_mode', 0))
+
+
 def is_dir_node(node):
     """Tests if `node` is a directory."""
     return ftstat.S_ISDIR(getattr(node, 'ft_mode', 0))
@@ -102,7 +112,7 @@ def is_supported(node):
 
 def is_deleted(node):
     """Tests if `node` is not marked for deletion."""
-    return not(getattr(node, 'ft_mode', 0) & ftstat.F_TODEL)
+    return getattr(node, 'ft_mode', 0) & ftstat.F_TODEL
 
 
 # vim: ts=4 sw=4 sts=4 et ai

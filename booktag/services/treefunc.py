@@ -10,7 +10,9 @@ def make_filenode(entry):
     """Returns a new instance of node in the file tree."""
     st_size = getattr(entry.stat, 'st_size', 0)
     ft_mode = ftstat.ft_mode(entry.path, entry.stat)
-    osfunc.is_readable(entry.path, entry.stats)
+    if ftstat.S_IFMT(ft_mode) == 0:
+        raise exceptions.NotDirectoryOrFileError(entry.path)
+    osfunc.is_readable(entry.path, entry.stat)
     if ftstat.S_ISDIR(ft_mode) or ftstat.S_ISAUD(ft_mode):
         osfunc.is_writable(entry.path, entry.stat)
     return filenode.FileNode(entry.path, st_size=st_size, ft_mode=ft_mode)

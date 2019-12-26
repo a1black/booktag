@@ -4,6 +4,14 @@ import os
 import re
 
 
+def len(iterable):
+    """Returns length of `iterable`."""
+    count = 0
+    for _ in iterable:
+        count += 1
+    return count
+
+
 def difference(base, *iterables):
     """Returns a list that contains the difference of two or more iterables."""
     if not len(iterables):

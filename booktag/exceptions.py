@@ -27,7 +27,14 @@ class IsASymlinkError(FileError):
     """Raised when the application encounters a symbol link."""
 
     def __init__(self, path):
-        super().__init__(path, 'Symbol link encountered', errno.EAGAIN)
+        super().__init__(path, 'Symbol link is not supported', errno.EAGAIN)
+
+
+class NotDirectoryOrFileError(FileError):
+    """Raised when scanner encounters neither a file nor a directory."""
+
+    def __init__(self, path):
+        super().__init__(path, 'Neither a file nor a directory', errno.EAGAIN)
 
 
 class DirectoryIsEmptyError(FileError):
@@ -38,10 +45,14 @@ class DirectoryIsEmptyError(FileError):
 
 
 class OutdatedFileStatError(FileError):
-    """Raised then process no longer able operate on in-memory file tree."""
+    """Raised when process no longer able operate on in-memory file tree."""
 
     def __init__(self, path):
         super().__init__(path, 'File stat is out of sync', errno.EAGAIN)
+
+
+class NotAudioContentError(AppBaseError):
+    """Raised when data is not an audio content."""
 
 
 class FileNotSupportedError(AppBaseError):

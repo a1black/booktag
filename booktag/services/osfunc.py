@@ -80,7 +80,8 @@ def is_readable(path, stats=None):
             try:
                 os.chmod(path, mode, follow_symlinks=False)
             except PermissionError:
-                raise PermissionError(errno.EACCES, 'Permission denied', path)
+                raise PermissionError(
+                    errno.EACCES, 'Permission denied', os.fspath(path))
     return True
 
 
@@ -104,7 +105,8 @@ def is_writable(path, stats=None):
         try:
             os.chmod(path, mode, follow_symlinks=False)
         except PermissionError:
-            raise PermissionError(errno.EACCES, 'Permission denied', path)
+            raise PermissionError(
+                errno.EACCES, 'Permission denied', os.fspath(path))
     return True
 
 
