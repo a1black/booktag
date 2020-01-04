@@ -39,7 +39,7 @@ class _AppArgs:
     def _fill_read_audio(self, opts):
         """Fills settings for reading audio tags."""
         if self._data.encoding:
-            opts['read_setting.audio.encoding'] = self._data.encoding
+            opts['read.audio.encoding'] = self._data.encoding
 
     def _fill_write_audio(self, opts):
         """Fills settings for writing audio tags."""
@@ -48,13 +48,14 @@ class _AppArgs:
         for arg_name, opt_name in args_map.items():
             flag = getattr(self._data, arg_name, False)
             if flag:
-                opts['write_setting.audio.{0}'.format(opt_name)] = flag
+                opts['write.audio.{0}'.format(opt_name)] = flag
 
     def _fill_run(self, opts):
         """Fills application launch settings."""
-        opts['run_setting.path'] = self._data.path
-        if self._data.no_ui:
-            opts['run_setting.no_ui'] = True
+        opts['prog'] = self.prog
+        opts['path'] = self._data.path
+        opts['debug'] = self._data.debug
+        opts['no_ui'] = self._data.no_ui
 
     def get_tags(self):
         """Returns user defined tags."""
@@ -72,10 +73,13 @@ def parse():
     """Returns command line arguments."""
     parser = argparse.ArgumentParser(description=HELP_DESC)
     parser.add_argument("path")
-    # App options
+    # Run options
     parser.add_argument(
-        "--encoding",
-        help="encoding used to decode ID3v2 tag encoded with ISO-8859-1")
+        "--debug", action="store_true",
+        help="log debug messages to a file that stored next to processed path")
+    parser.add_argument(
+        "--no-ui", action="store_true",
+        help="update tags without starting command-line user interface")
     # Meta options
     parser.add_argument(
         "--author", metavar="NAMES", action=TagAction,
@@ -110,6 +114,10 @@ def parse():
     parser.add_argument(
         "--comment", action=TagAction, tag=tagcontainer.Names.COMMENT,
         help="audio book's commentary")
+    # Service options
+    parser.add_argument(
+        "--encoding",
+        help="encoding used to decode ID3v2 tag encoded with ISO-8859-1")
     # Clean-up metadata
     parser.add_argument(
         "--no-comm", action="store_true",
@@ -122,10 +130,6 @@ def parse():
         help="remove tags containing legal information")
     parser.add_argument(
         "--no-web", action="store_true", help="remove tags containing URLs")
-    # Optional
-    parser.add_argument(
-        "--no-ui", action="store_true",
-        help="update tags without starting command-line user interface")
 
     return _AppArgs(parser.prog, parser.parse_args())
 

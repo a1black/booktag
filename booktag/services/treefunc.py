@@ -6,7 +6,7 @@ from booktag.services import osfunc
 from booktag.utils import ftstat
 
 
-def make_filenode(entry):
+def _make_filenode(entry):
     """Returns a new instance of node in the file tree."""
     st_size = getattr(entry.stat, 'st_size', 0)
     ft_mode = ftstat.ft_mode(entry.path, entry.stat)
@@ -36,13 +36,13 @@ def build_filetree(path, *, maxdepth=None):
         return node
 
     if os.path.islink(path):
-        return make_filenode(path)
+        return _make_filenode(osfunc.DirInfo.from_path(path))
     tree_iter = osfunc.recursive_scandir(osfunc.absrealpath(path),
                                          maxdepth=maxdepth)
-    focus = make_filenode(next(tree_iter))
+    focus = _make_filenode(next(tree_iter))
     base_depth = get_depth(focus.get_value())
     for child in tree_iter:
-        child_node = make_filenode(child)
+        child_node = _make_filenode(child)
         child_depth = get_depth(child.path) - base_depth
         focus_depth = focus.get_depth()
         if child_depth > focus_depth:

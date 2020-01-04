@@ -51,6 +51,10 @@ class OutdatedFileStatError(FileError):
         super().__init__(path, 'File stat is out of sync', errno.EAGAIN)
 
 
+class HaltError(AppBaseError):
+    """Raised when process must be terminated."""
+
+
 class NotAudioContentError(AppBaseError):
     """Raised when data is not an audio content."""
 

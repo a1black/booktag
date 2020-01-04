@@ -4,7 +4,7 @@ import shutil
 import stat
 
 
-class _DirInfo:
+class DirInfo:
     """
     Args:
         path (str): Full pathname.
@@ -20,6 +20,9 @@ class _DirInfo:
         self.path = os.fspath(path)
         self.parent, self.name = os.path.split(path)
         self.stat = stat
+
+    def __str__(self):
+        return self.path
 
     def __fspath__(self):
         return self.path
@@ -143,10 +146,10 @@ def recursive_scandir(path, *, maxdepth=None):
         maxdepth(:obj:`int`, optional): Number of levels to descend.
 
     Yields:
-        :class:`_DirInfo`: Object corresponding to the file entry.
+        :class:`DirInfo`: Object corresponding to the file entry.
     """
 
-    path = _DirInfo.make_from(path)
+    path = DirInfo.make_from(path)
     yield path
     if maxdepth is None or maxdepth > 0:
         if path.is_dir():

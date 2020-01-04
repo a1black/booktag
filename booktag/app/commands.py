@@ -10,8 +10,8 @@ from booktag.utils import functional
 def build_tree(config, path):
     """Command reads build file tree with root at `path`."""
     tree = treefunc.build_filetree(path)
-    read_audio_kw = config.get('read_setting.audio', {})
-    read_image_kw = config.get('read_setting.image', {})
+    read_audio_kw = config.get('read.audio', {})
+    read_image_kw = config.get('read.image', {})
     for node in treefunc.recursive_listtree(tree):
         if metafunc.is_dir_node(node):
             props = metafunc.read_dir_meta(node)
