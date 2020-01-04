@@ -54,7 +54,6 @@ class App:
                             unsupported=audio_unsup, trash=audio_del)
         self.view.show_stat(' ' * 5, supported=image_sup,
                             unsupported=image_unsup, trash=image_del)
-        return
         # Apply user tags and save modified tags
         with self.view.show_wait('Save tags', 'Done!'):
             if self.tags:

@@ -1,9 +1,13 @@
 import os
 
+import natsort
+
 from booktag import exceptions
 from booktag.app import filenode
+from booktag.app import tagcontainer
 from booktag.services import osfunc
 from booktag.utils import ftstat
+from booktag.utils import functional
 
 
 def _make_filenode(entry):
@@ -100,6 +104,44 @@ def filter_tree(tree, *funcs):
                 break
         else:
             yield node
+
+
+def natsorted_tree(tree, reverse=False):
+    """Recursively sorts child nodes in natural order.
+
+    Args:
+        tree (:class:`filenode.FileNode`): The tree to sort.
+        reverse (:obj:`bool`, optional): Sorting order.
+    """
+    natsort_key = natsort.natsort_keygen(key=lambda x: x.get_value())
+    tree.sort(key=natsort_key, reverse=reverse)
+    return tree
+
+
+def tracksorted_tree(tree, reverse=False):
+    """Recursively sorts child nodes by a track number on a disc.
+
+    Nodes, which are of none audio content, unsupported audio content or
+    marked for deletion, are placed at the end of the child list.
+
+    Args:
+        tree (:class:`filenode.FileNode`): The tree to sort.
+        reverse (:obj:`bool`, optional): Sorting order.
+    """
+
+    def tracksort_key(node):
+        try:
+            tags = node.tags
+            disc = tags.get(tagcontainer.Names.DISCNUM, 0)
+            track = tags.get(tagcontainer.Names.TRACKNUM, 0)
+            title = tags.get(tagcontainer.Names.TITLE) or node.get_value()
+        except AttributeError:
+            disc = track = float('inf')
+            title = node.get_value()
+        return (disc, track) + natsort.natsort_key(title)
+
+    tree.sort(key=tracksorted_tree, reverse=reverse)
+    return tree
 
 
 # vim: ts=4 sw=4 sts=4 et ai

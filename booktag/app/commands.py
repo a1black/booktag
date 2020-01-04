@@ -22,7 +22,7 @@ def build_tree(config, path):
         else:
             props = {}
         node.props.update(props)
-    return tree
+    return treefunc.natsorted_tree(tree)
 
 
 def update_tree(config, tree):
