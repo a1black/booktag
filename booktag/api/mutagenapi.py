@@ -12,6 +12,7 @@ TODO:
     * :class:`MP3Write` add logging if creating frame istance is failed.
     * Remember about TypeError and ValueError raised by tag container.
 """
+import logging
 import re
 
 from mutagen import (File, FileType, MutagenError, flac, mp3, mp4, wavpack,
@@ -24,10 +25,16 @@ from booktag.utils import ftstat
 
 
 DEFAULT_ID3_DATA_ATTR = 'text'
+logger = logging.getLogger(__name__)
 
 
 class SkipTagError(Exception):
     """Raised to skip mapping entry."""
+
+
+def debug(value, **kwargs):
+    logger.debug('Read value: {0!r}'.format(value))
+    return value
 
 
 def not_none(value, **kwargs):
@@ -88,6 +95,11 @@ def split_values(value, **kwargs):
     for item in to_list(value):
         newvalue.extend(x.strip() for x in re.split(pattern, str(item)))
     return list(filter(None, newvalue))
+
+
+def timestamp_year(value, **kwargs):
+    """Returns year part of timestamp `value`."""
+    return getattr(value, 'year', value)
 
 
 def id3_read(tag, *, attr=DEFAULT_ID3_DATA_ATTR, encoding=None, **kwargs):
@@ -268,7 +280,8 @@ int_val_wrap = (to_int, not_zero, to_string)
 # Mapping for reading ID3 tagging container.
 MP3ReadMapping = [
     MP3Read('TALB', tagcontainer.Names.ALBUM, join_list, sep=' '),
-    MP3Read('TDRC', tagcontainer.Names.DATE, zeroindex_get, to_int),
+    MP3Read('TDRC', tagcontainer.Names.DATE,
+            zeroindex_get, timestamp_year, to_int),
     MP3Read('GRP1', tagcontainer.Names.GROUPING, zeroindex_get),
     MP3Read('TIT1', tagcontainer.Names.GROUPING, zeroindex_get),
     MP3Read('TIT2', tagcontainer.Names.TITLE, join_list, sep=' '),

@@ -131,7 +131,7 @@ def tracksorted_tree(tree, reverse=False):
 
     def tracksort_key(node):
         try:
-            tags = node.tags
+            tags = node.props.tags
             disc = tags.get(tagcontainer.Names.DISCNUM, 0)
             track = tags.get(tagcontainer.Names.TRACKNUM, 0)
             title = tags.get(tagcontainer.Names.TITLE) or node.get_value()

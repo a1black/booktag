@@ -2,6 +2,8 @@
 TODO:
     * :func:`.write_audio_meta`: Write handler in case if tags is None
 """
+import humanize
+
 from booktag import exceptions
 from booktag.api import mutagenapi
 from booktag.api import pillowapi
@@ -114,5 +116,15 @@ def is_deleted(node):
     """Tests if `node` is not marked for deletion."""
     return getattr(node, 'ft_mode', 0) & ftstat.F_TODEL
 
+
+def get_content_type_name(node):
+    """Returns name of file's content type refered by the `node`."""
+    name = ftstat.ft_name(getattr(node, 'ft_mode', 0))
+    return name[2] or name[1] or name[0] or 'unknown'
+
+
+def get_filesize(node):
+    """Returns human-friendly file size."""
+    return humanize.naturalsize(node.st_size, gnu=True)
 
 # vim: ts=4 sw=4 sts=4 et ai

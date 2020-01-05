@@ -149,7 +149,7 @@ def S_ISFB2(mode):
 
 
 def ft_extension(mode):
-    """Returns extension for a file format using file mode.
+    """Returns extension for a file format described by the `mode`.
 
     Args:
         mode (int): File mode.
@@ -177,6 +177,19 @@ def ft_extension(mode):
         return ('.fb2',)
     elif S_ISPDF(mode):
         return ('.pdf',)
+    else:
+        return ('')
+
+
+def ft_name(mode):
+    """Returns that contains names of file type, content type and format."""
+    ftname = ((S_ISDIR(mode) and 'dir') or (S_ISREG(mode) and 'file')
+              or (S_ISLNK(mode) and 'symlink') or None)
+    ctname = ((S_ISAUD(mode) and 'audio') or (S_ISBOK(mode) and 'book')
+              or (S_ISIMG(mode) and 'image') or None)
+    ext = ft_extension(mode)[0]
+    fnname = ext[1:] if ext else None
+    return (ftname, ctname, fnname)
 
 
 def ft_mode(path, stats=None):

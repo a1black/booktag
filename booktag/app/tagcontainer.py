@@ -64,7 +64,7 @@ class Names(str, enum.Enum):
     ARTIST = 'artist'
     COMMENT = 'comment'
     COMPOSER = 'composer'
-    DATE = 'data'
+    DATE = 'date'
     DISCNUM = 'discnumber'
     DISCTOTAL = 'disctotal'
     GENRE = 'genre'

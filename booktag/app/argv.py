@@ -19,11 +19,11 @@ class TagAction(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         tags = getattr(namespace, 'tags', None)
-        if tag_container is None:
-            tag_container = tagcontainer.Tags()
+        if tags is None:
+            tags = tagcontainer.Tags()
             setattr(namespace, 'tags', tags)
         try:
-            tag_container[self.tag_name] = values
+            tags[self.tag_name] = values
         except (TypeError, ValueError):
             raise argparse.ArgumentError(
                 self, 'invalie value: {0!r}'.format(values))
@@ -52,10 +52,10 @@ class _AppArgs:
 
     def _fill_run(self, opts):
         """Fills application launch settings."""
+        keys = ['path', 'debug', 'show', 'no_ui']
+        for key in keys:
+            opts[key] = getattr(self._data, key)
         opts['prog'] = self.prog
-        opts['path'] = self._data.path
-        opts['debug'] = self._data.debug
-        opts['no_ui'] = self._data.no_ui
 
     def get_tags(self):
         """Returns user defined tags."""
@@ -80,6 +80,9 @@ def parse():
     parser.add_argument(
         "--no-ui", action="store_true",
         help="update tags without starting command-line user interface")
+    parser.add_argument(
+        "--show", action="store_true",
+        help="read metadata from file and print it to the terminal")
     # Meta options
     parser.add_argument(
         "--author", metavar="NAMES", action=TagAction,

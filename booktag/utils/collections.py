@@ -96,8 +96,7 @@ class TreeNode:
 
     def get_root(self):
         """Returns the root node."""
-        parent = self.get_parent()
-        return self if parent is None else parent.get_root()
+        return self if self.is_root() else self.get_parent().get_root()
 
     def get_children(self):
         return self._children
@@ -183,6 +182,9 @@ class TreeNode:
         child = self._children.pop(self.index(node))
         child.set_parent(None)
         return child
+
+    def is_root(self):
+        return self._parent is None
 
     def has_children(self):
         return len(self._children) > 0

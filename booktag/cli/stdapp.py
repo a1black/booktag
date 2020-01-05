@@ -50,10 +50,14 @@ class App:
         image_sup, image_unsup, image_del = statistic.image_statistic(tree)
         self.view.show_stat('Find:', directories=dirs, files=files,
                             symlinks=symlinks)
-        self.view.show_stat(' ' * 5, audio=audio_sup,
+        self.view.show_stat('     ', audio=audio_sup,
                             unsupported=audio_unsup, trash=audio_del)
-        self.view.show_stat(' ' * 5, supported=image_sup,
+        self.view.show_stat('     ', supported=image_sup,
                             unsupported=image_unsup, trash=image_del)
+        collected_tags = commands.collect_audio_tags(self.config, tree)
+        if collected_tags:
+            self.view.show_line('=' * 10, 'AUDIO TAGS', '=' * 10)
+            self.view.show_dict(collected_tags)
         # Apply user tags and save modified tags
         with self.view.show_wait('Save tags', 'Done!'):
             if self.tags:
@@ -135,6 +139,13 @@ class View:
         if txt:
             self.show_char(label, ' ', txt)
             self.show_eol()
+
+    def show_dict(self, dct):
+        """Displays dictionary as a form."""
+        for k, v in sorted(dct.items()):
+            if isinstance(v, list):
+                v = ', '.join(v)
+            self.show_line('{0}: {1}'.format(k.capitalize(), v))
 
 
 # vim: ts=4 sw=4 sts=4 et ai

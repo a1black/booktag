@@ -14,6 +14,7 @@ import ruamel.yaml
 
 from booktag import exceptions
 from booktag.app import argv
+from booktag.cli import showscript
 from booktag.cli import stdapp
 from booktag.utils import collections
 
@@ -63,9 +64,12 @@ def main():
         args.apply_user_settings(config)
         logger = init_logging(config)
         tags = args.get_tags() or None
-        app = stdapp.App() if config['no_ui'] else stdapp.App()
+        if config['show']:
+            app = showscript.App()
+        else:
+            app = stdapp.App()
+            app.set_tags(tags)
         app.set_config(config)
-        app.set_tags(tags)
         app.run()
     except (FileNotFoundError, PermissionError) as err:
         fail(args.prog,

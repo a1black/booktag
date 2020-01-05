@@ -95,4 +95,23 @@ def snake_to_camel(name):
     return ''.join(x.capitalize() for x in name.split('_'))
 
 
+def str_shorten(data, maxlen, wrap='..'):
+    """Returns a new string wrapped to length `maxlen`."""
+    if len(data) <= abs(maxlen):
+        shortend = data
+    else:
+        append = prepend = False
+        wraplen = len(wrap)
+        idx = slice(maxlen) if maxlen > 0 else slice(maxlen, len(data))
+        if wraplen and wraplen < abs(maxlen):
+            if maxlen > 0:
+                append = True
+                idx = slice(idx.start, idx.stop - wraplen)
+            else:
+                prepend = True
+                idx = slice(idx.start + wraplen, idx.stop)
+        shortend = wrap * prepend + data[idx] + wrap * append
+    return shortend
+
+
 # vim: ts=4 sw=4 sts=4 et ai

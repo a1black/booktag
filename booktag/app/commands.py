@@ -2,14 +2,16 @@
 import copy
 
 from booktag import exceptions
+from booktag.app import tagcontainer
 from booktag.services import metafunc
+from booktag.services import tagfunc
 from booktag.services import treefunc
 from booktag.utils import functional
 
 
-def build_tree(config, path):
+def build_tree(config, path, maxdepth=None):
     """Command reads build file tree with root at `path`."""
-    tree = treefunc.build_filetree(path)
+    tree = treefunc.build_filetree(path, maxdepth=maxdepth)
     read_audio_kw = config.get('read.audio', {})
     read_image_kw = config.get('read.image', {})
     for node in treefunc.recursive_listtree(tree):
@@ -65,10 +67,39 @@ def apply_audio_tags(config, tree, tags):
                    functional.not_decorator(metafunc.is_deleted))
     for node in treefunc.filter_tree(tree, *node_filter):
         try:
-            node.props.tags.update(tags)
+            node.tags.update(tags)
         except AttributeError:
-            node.props.tags = copy.copy(tags)
+            node.tags = copy.copy(tags)
         node.notify_observers('update_meta')
+
+
+def collect_audio_tags(config, tree):
+    """Returns tags container best matched to population of the `tree`."""
+    node_filter = (metafunc.is_audio_node, metafunc.is_supported,
+                   functional.not_decorator(metafunc.is_deleted))
+    collector, tags = tagfunc.TagCollector(), tagcontainer.Tags()
+    mapping = {
+        tagcontainer.Names.ALBUM: collector.max,
+        tagcontainer.Names.ALBUMARTIST: collector.median,
+        tagcontainer.Names.ARTIST: collector.median,
+        tagcontainer.Names.COMMENT: collector.max,
+        tagcontainer.Names.COMPOSER: collector.median,
+        tagcontainer.Names.DATE: collector.max,
+        tagcontainer.Names.GENRE: collector.median,
+        tagcontainer.Names.GROUPING: collector.max,
+        tagcontainer.Names.LABEL: collector.max,
+        tagcontainer.Names.ORIGINALDATE: collector.max
+    }
+    for node in treefunc.filter_tree(tree, *node_filter):
+        for tagname in mapping.keys():
+            try:
+                value = node.tags.get(tagname)
+            except AttributeError:
+                value = None
+            collector.add(tagname, value)
+    for tagname, meth in mapping.items():
+        tags[tagname] = meth(tagname)
+    return tags
 
 
 def save_audio_tags(config, tree):
