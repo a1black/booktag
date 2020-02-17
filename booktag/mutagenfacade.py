@@ -9,6 +9,7 @@ TODO:
 """
 import abc
 import base64
+import itertools
 import logging
 import os
 import re
@@ -105,9 +106,14 @@ class AbstractMapRule(metaclass=abc.ABCMeta):
 
     def run(self, source, target):
         try:
-            return self._execute(source, target)
+            self._execute(source, target)
+            logger.debug('Move tag from {0}[{1}] to {2}[{3}]'.format(
+                type(source).__name__, self._from, type(target).__name__,
+                self._to))
         except SkipTagError:
             self.set_tag(target, self._to, None)
+            logger.debug('Skip tag {0}[{1}]'.format(
+                type(source).__name__, self._from))
 
 
 class AbstractFilter(metaclass=abc.ABCMeta):
@@ -169,15 +175,17 @@ class MoveTag(AbstractMapRule):
 class ID3In(AbstractFilter):
     """Filter for wrapping value into Mutagen ID3 frame structure."""
 
+    def __init__(self, *, cls, attr='text', **kwargs):
+        super().__init__(**kwargs)
+        self._cls = cls
+        self._attr = attr
+
     def run(self, value):
-        try:
-            data_attr = self._options.get('attr', 'text')
-            cls = self._options['cls']
-            if not isinstance(value, dict):
-                value = {data_attr: value}
-            return cls(**value)
-        except KeyError:
-            raise ValueError('ID3In() missing type of ID3 frame')
+        defaults = self._options.get('defaults', {})
+        if not isinstance(value, dict):
+            value = {self._attr: value}
+        return self._cls(
+            **dict(itertools.chain(value.items(), defaults.items())))
 
 
 class ID3Out(AbstractFilter):
@@ -254,10 +262,14 @@ class ToListFirstTuple(ToList):
 class SplitStr(AbstractFilter):
     """Filter split string into a list of values using `sep` string."""
 
+    def __init__(self, *, sep, **kwargs):
+        if not isinstance(sep, (list, tuple)):
+            raise TypeError('{0}() expects sep to be list, got {1}'.format(
+                type(self).__name__, type(sep).__name__))
+        super().__init__(sep=sep, **kwargs)
+
     def run(self, value):
         sep = self._options.get('sep')
-        if not (sep or isinstance(sep, (list, tuple))):
-            raise ValueError("SplitStr() missing separator string")
         pattern = '|'.join(re.escape(x) for x in sep)
         newvalue = []
         for item in ToList(notempty=False).run(value):
@@ -362,6 +374,31 @@ class ToVorbisCover(AbstractFilter):
             raise SkipTagError
 
 
+class CombineTag(AbstractMapRule):
+    """Rule combines multiple tags into single string.
+
+    Metadata tag only assigned if all source tags are set and not empty.
+    """
+
+    def __init__(self, *source_keys, target_key, filters=None):
+        if len(source_keys) < 2:
+            raise ValueError(
+                '{0}() expects at least 2 positional ' 'argument, got '
+                '{1}'.format(type(self).__name__, len(source_keys)))
+        super().__init__(*(list(filters) if filters else []))
+        self._from = source_keys
+        self._to = target_key
+
+    def _execute(self, source, target):
+        value = []
+        tagfilter = ToStr(notempty=True)
+        for source_key in self._from:
+            tagvalue = self.get_tag(source, source_key)
+            value.append(tagfilter.run(tagvalue))
+        value = tagfilter.run(value)
+        self.set_tag(target, self._to, self._filter(value))
+
+
 class PairTag(MoveTag):
     """Rule to read value from metadata tag, like 'track/total'."""
 
@@ -450,7 +487,7 @@ MP3ReadMapping = [
     PictureOut('APIC'),
     MoveTag('TALB', TagName.ALBUM, ID3Out, ToStr),
     MoveTag('TDRC', TagName.DATE, ID3Out, Year),
-    MoveTag('GRP1', TagName.GROUPING, ID3Out, ToStr),
+    MoveTag('TDOR', TagName.ORIGINALDATE, ID3Out, Year),
     MoveTag('TIT1', TagName.GROUPING, ID3Out, ToStr),
     MoveTag('TIT2', TagName.TITLE, ID3Out, ToStr),
     MoveTag('TPE1', TagName.ARTIST, ID3Out, SplitStr(sep=[',', '&', '/'])),
@@ -459,6 +496,7 @@ MP3ReadMapping = [
     MoveTag('TCOM', TagName.COMPOSER, ID3Out, SplitStr(sep=[',', '&', '/'])),
     MoveTag('TCON', TagName.GENRE, ID3Out, SplitStr(sep=[',', '/'])),
     MoveTag('TPUB', TagName.LABEL, ID3Out, ToStr),
+    MoveTag('COMM:description', TagName.COMMENT, ID3Out, ToStr),
     PairTag('TRCK', TagName.TRACKNUM, TagName.TRACKTOTAL, ID3Out, FirstItem,
             SplitStr(sep=['/'], notempty=True)),
     PairTag('TPOS', TagName.DISCNUM, TagName.DISCTOTAL, ID3Out, FirstItem,
@@ -475,6 +513,7 @@ MP4ReadMapping = [
     MoveTag('aART', TagName.ALBUMARTIST, SplitStr(sep=[',', '&', '/'])),
     MoveTag('\xa9wrt', TagName.COMPOSER, SplitStr(sep=[',', '&', '/'])),
     MoveTag('\xa9gen', TagName.GENRE, SplitStr(sep=[',', '/'])),
+    MoveTag('\xa9cmt', TagName.COMMENT, ToStr),
     PairTag('trkn', TagName.TRACKNUM, TagName.TRACKTOTAL, FirstItem),
     PairTag('disk', TagName.DISCNUM, TagName.DISCTOTAL, FirstItem)
 ]
@@ -483,6 +522,7 @@ OggReadMapping = [
     PictureOut('metadata_block_picture', VorbisCover),
     MoveTag('album', TagName.ALBUM, ToStr),
     MoveTag('date', TagName.DATE, FirstItem, ToInt(notzero=True)),
+    MoveTag('originaldate', TagName.ORIGINALDATE, FirstItem, ToInt(notzero=1)),
     MoveTag('grouping', TagName.GROUPING, ToStr),
     MoveTag('title', TagName.TITLE, ToStr),
     MoveTag('artist', TagName.ARTIST, SplitStr(sep=[',', '&', '/'])),
@@ -490,19 +530,20 @@ OggReadMapping = [
     MoveTag('composer', TagName.COMPOSER, SplitStr(sep=[',', '&', '/'])),
     MoveTag('genre', TagName.GENRE, SplitStr(sep=[',', '/'])),
     MoveTag('label', TagName.LABEL, ToStr),
+    MoveTag('comment', TagName.COMMENT, ToStr),
     MoveTag('tracknumber', TagName.TRACKNUM, FirstItem, ToInt(notzero=True)),
     MoveTag('tracktotal', TagName.TRACKTOTAL, FirstItem, ToInt(notzero=True)),
-    MoveTag('totaltracks', TagName.TRACKTOTAL, FirstItem, ToInt(notzero=True)),
     MoveTag('discnumber', TagName.DISCNUM, FirstItem, ToInt(notzero=True)),
     MoveTag('disctotal', TagName.DISCTOTAL, FirstItem, ToInt(notzero=True)),
-    MoveTag('totaldisks', TagName.DISCTOTAL, FirstItem, ToInt(notzero=True))
 ]
 # Mapping for writing data into ID3 tagging container.
 MP3WriteMapping = Mapping(
     PictureIn('APIC', ToApic),
     MoveTag(TagName.ALBUM, 'TALB', ToStr, ToList, ID3In(cls=id3.TALB)),
-    MoveTag(TagName.DATE, 'TDRC', ToInt(notzero=True), ToList,
+    MoveTag(TagName.DATE, 'TDRC', ToInt(notzero=True, positive=True), ToStr,
             ID3In(cls=id3.TDRC)),
+    MoveTag(TagName.ORIGINALDATE, 'TDOR', ToInt(notzero=True, positive=True),
+            ToStr, ID3In(cls=id3.TDOR)),
     MoveTag(TagName.GROUPING, 'GRP1', ToStr, ToList, ID3In(cls=id3.GRP1)),
     MoveTag(TagName.GROUPING, 'TIT1', ToStr, ToList, ID3In(cls=id3.TIT1)),
     MoveTag(TagName.TITLE, 'TIT2', ToStr, ToList, ID3In(cls=id3.TIT2)),
@@ -515,12 +556,16 @@ MP3WriteMapping = Mapping(
     MoveTag(TagName.GENRE, 'TCON', ToStr(sep=', '), ToList,
             ID3In(cls=id3.TCON)),
     MoveTag(TagName.LABEL, 'TPUB', ToStr, ToList, ID3In(cls=id3.TPUB)),
+    MoveTag(TagName.COMMENT, 'COMM:description', ToStr, ToList,
+            ID3In(cls=id3.COMM, defaults={'desc': 'description'})),
+    CombineTag(TagName.GROUPING, TagName.ALBUM, target_key='TSOA',
+               filters=[ToList, ID3In(cls=id3.TSOA)]),
     ToPairTag(TagName.TRACKNUM, TagName.TRACKTOTAL, 'TRCK', ToStr(sep='/'),
               ToList, ID3In(cls=id3.TRCK)),
     ToPairTag(TagName.DISCNUM, TagName.DISCTOTAL, 'TPOS', ToStr(sep='/'),
               ToList, ID3In(cls=id3.TPOS)),
     comment=['^COMM'], legal=['^TCOP$', '^TOWN$', '^TPRO$'], lyrics=['^USLT'],
-    require=['^TMOO$', '^PCNT$', '^POPM'], url=['^W[A-Z]{3}'], user=['^TXXX']
+    required=['^TMOO$', '^PCNT$', '^POPM'], url=['^W[A-Z]{3}'], user=['^TXXX']
 )
 # Mapping for writing data into MPEG-4 Audio tagging container.
 MP4WriteMapping = Mapping(
@@ -533,9 +578,12 @@ MP4WriteMapping = Mapping(
     MoveTag(TagName.ALBUMARTIST, 'aART', ToStr(sep=', '), ToList),
     MoveTag(TagName.COMPOSER, '\xa9wrt', ToStr(sep=', '), ToList),
     MoveTag(TagName.GENRE, '\xa9gen', ToStr(sep=', '), ToList),
+    MoveTag(TagName.COMMENT, '\xa9cmt', ToStr, ToList),
+    CombineTag(TagName.GROUPING, TagName.ALBUM, target_key='soal',
+               filters=[ToList]),
     ToPairTag(TagName.TRACKNUM, TagName.TRACKTOTAL, 'trkn', ToListFirstTuple),
     ToPairTag(TagName.DISCNUM, TagName.DISCTOTAL, 'disk', ToListFirstTuple),
-    legal=['^cprt$', 'LICENSE$'], lyrics=['^.lyr$']
+    comment=['^.cmt'], legal=['^cprt$', 'LICENSE$'], lyrics=['^.lyr$']
 )
 # Mapping for writing data into Ogg Vorbis tagging container.
 OggWriteMapping = Mapping(
@@ -549,14 +597,14 @@ OggWriteMapping = Mapping(
     MoveTag(TagName.COMPOSER, 'composer', ToStr(sep=', '), ToList),
     MoveTag(TagName.GENRE, 'genre', ToStr(sep=', '), ToList),
     MoveTag(TagName.LABEL, 'label', ToStr, ToList),
-    MoveTag(TagName.TRACKNUM, 'tracknumber', ToInt(notzero=1), ToStr, ToList),
+    MoveTag(TagName.COMMENT, 'comment', ToStr, ToList),
+    CombineTag(TagName.GROUPING, TagName.ALBUM, target_key='albumsort',
+               filters=[ToList]),
+    MoveTag(TagName.TRACKNUM, 'tracknumber', ToInt(notzero=2), ToStr, ToList),
     MoveTag(TagName.TRACKTOTAL, 'tracktotal', ToInt(notzero=1), ToStr, ToList),
-    MoveTag(TagName.TRACKTOTAL, 'totaltracks', ToInt(notzero=1), ToStr,
-            ToList),
     MoveTag(TagName.DISCNUM, 'discnumber', ToInt(notzero=1), ToStr, ToList),
     MoveTag(TagName.DISCTOTAL, 'disctotal', ToInt(notzero=1), ToStr, ToList),
-    MoveTag(TagName.DISCTOTAL, 'totaldisks', ToInt(notzero=1), ToStr, ToList),
-    legal=['^copyright', '^license'], require=['^mrat', '^mood', '^rating'],
+    legal=['^copyright', '^license'], required=['^mrat', '^mood', '^rating'],
     user=['^contact', '^website'], lyrics=['^lyrics']
 )
 
@@ -589,6 +637,8 @@ def _drop_tags(target, *regexps):
         for _ in (x for x in regexps if re.search(x, tagname)):
             try:
                 del target[tagname]
+                logger.debug('Drop tag {0}[{1}]'.format(
+                    type(target).__name__, tagname))
             except KeyError:
                 pass
             break
@@ -637,7 +687,10 @@ def export(path, metadata, **kwargs):
     audio = _open(os.fspath(path))
     mapping = _resolve_audiotype(audio)[2]
     # Drop useless tags
-    useless = ['require'] + kwargs.get('drop', [])
+    useless = set(['required'])
+    if metadata.get(TagName.COMMENT):
+        useless.add('comment')
+    useless.update(kwargs.get('drop', []))
     for namespace in useless:
         _drop_tags(audio.tags, *mapping.get_useless(namespace))
     # Save metadata tags

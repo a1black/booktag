@@ -227,6 +227,7 @@ class Metadata:
     mapping = {
         TagName.ALBUM: str,
         TagName.ALBUMARTIST: _list_frame,
+        TagName.ALBUMSORT: str,
         TagName.ARTIST: _list_frame,
         TagName.COMMENT: str,
         TagName.COMPOSER: _list_frame,
