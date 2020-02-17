@@ -1,12 +1,11 @@
 import os
 import re
 
-import magic
-
 from booktag import exceptions
 from booktag import mutagenfacade
+from booktag import osutils
 from booktag import streams
-from booktag.constants import AudioType, PictureType, TagName
+from booktag.constants import AudioType, TagName
 
 
 class AudioFile:
@@ -87,15 +86,7 @@ class AudioFile:
         Returns:
             AudioFile: A new instance of a class.
         """
-        mime = magic.from_file(os.fsdecode(path), mime=True)
-        if re.match('^audio/(?:x-)?(?:mp[23]|mpeg)$', mime):
-            audio_format = AudioType.MP3
-        elif re.match('^audio/(?:x-)?(?:m4a|mp4|mpeg4)$', mime):
-            audio_format = AudioType.MP4
-        # elif re.match(r'^audio/(?:x-)?(?:ogg)?flac$', mime):
-        #     audio_format = None
-        elif mime == 'audio/ogg':
-            audio_format = AudioType.OGG
-        else:
+        filetype = osutils.file(path)
+        if not isinstance(filetype, AudioFile):
             raise exceptions.NotAnAudioFileError(path)
-        return cls(path, format=audio_format)
+        return cls(path, format=filetype)

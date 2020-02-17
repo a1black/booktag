@@ -10,6 +10,7 @@ class AudioType(str, enum.Enum):
 
 
 class ImageType(str, enum.Enum):
+    """Enumeration of supported image file formats."""
     JPEG = 'JPEG'
     PNG = 'PNG'
 
