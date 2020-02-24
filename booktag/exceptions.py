@@ -6,6 +6,14 @@ class AppBaseError(Exception):
     """Base application error."""
 
 
+class CliArgumentError(AppBaseError):
+    """Raised when user provides invalid value for command-line argument."""
+
+    def __init__(self, cmd, msg):
+        super().__init__(msg)
+        self.command = cmd
+
+
 class FileTypeNotSupportedError(AppBaseError, OSError):
     """Raised when file cann't be processed by the application."""
 

@@ -19,11 +19,17 @@ class AudioFile:
         self._image_stream = None
         self._metadata = None
 
+    def __fspath__(self):
+        return self.path
+
     def _lazy_load(self):
         aformat, ainfo, ameta = mutagenfacade.from_file(self.path)
         self._audio_stream = ainfo
         self._format = AudioType(aformat)
         self._metadata = ameta
+
+    def export_metadata(self):
+        mutagenfacade.export(self, self.metadata)
 
     @property
     def audio(self):
@@ -52,6 +58,11 @@ class AudioFile:
             raise TypeError('invalid type of image data: {0}'.format(
                 type(picture).__name__))
 
+    @cover.deleter
+    def cover(self):
+        """Removes album cover art."""
+        del self.metadata[TagName.COVER]
+
     @property
     def format(self):
         """str: Audio format."""
@@ -59,7 +70,7 @@ class AudioFile:
 
     @property
     def metadata(self):
-        """Metadata: Metadata tags stored in the file container."""
+        """streams.Metadata: Metadata tags stored in the file container."""
         if self._metadata is None:
             self._lazy_load()
         return self._metadata
@@ -86,7 +97,7 @@ class AudioFile:
         Returns:
             AudioFile: A new instance of a class.
         """
-        filetype = osutils.file(path)
-        if not isinstance(filetype, AudioFile):
+        filetype = osutils.is_audio(path, follow_symlinks=False)
+        if not filetype:
             raise exceptions.NotAnAudioFileError(path)
         return cls(path, format=filetype)

@@ -33,6 +33,9 @@ class DirEntry:
     def __eq__(self, other):
         return self.path == other
 
+    def exists(self):
+        return os.path.exists(self.path)
+
     def inode(self):
         return self.stat(follow_symlinks=False).st_ino
 
@@ -44,6 +47,10 @@ class DirEntry:
 
     def is_symlink(self):
         return stat.S_ISLNK(self.stat(follow_symlinks=False).st_mode)
+
+    def size(self, *, follow_symlinks=True):
+        stat_res = self.stat(follow_symlinks=follow_symlinks)
+        return getattr(stat_res, 'st_size', 0)
 
     def stat(self, *, follow_symlinks=True):
         if self._stat_cache is None or self._stat_cache[1] != follow_symlinks:
@@ -96,7 +103,7 @@ class RecursiveScandirIterator(contextlib.AbstractContextManager):
             self._stack.append(os.scandir(next_entry))
         return next_entry
 
-    def is_descendable(self, entry):
+    def _is_descendable(self, entry):
         """Checks if iterator can descent into a directory."""
         depth = len(entry.parts) - self._depth_delta
         isdir = entry.is_dir(follow_symlinks=self._follow_symlinks)
@@ -105,14 +112,14 @@ class RecursiveScandirIterator(contextlib.AbstractContextManager):
     def _pop_next_from_stack(self):
         """
         Returns:
-            os.DirEntry: Next file entry determined by depth-first traversal
+            DirEntry: Next file entry determined by depth-first traversal
                 algoritm.
         """
         try:
             current_iter = self._stack.pop()
             next_entry = next(current_iter)
             self._stack.append(current_iter)
-            return next_entry
+            return DirEntry(next_entry)
         except StopIteration:
             return self._pop_next_from_stack()
         except IndexError:
@@ -123,44 +130,13 @@ class RecursiveScandirIterator(contextlib.AbstractContextManager):
         while self._stack:
             self._stack.pop().close()
 
+    @property
+    def follow_symlinks(self):
+        return self._follow_symlinks
 
-class Find(RecursiveScandirIterator):
-    AUDIO_TYPE = 1
-    IMAGE_TYPE = 2
-    DIR_TYPE = 3
-
-    def __init__(self, *args, type=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._type = type
-
-    def __next__(self):
-        next_item = super().__next__()
-        filetype = None if self._type is None else self._check_type(next_item)
-        if self._type == filetype:
-            return next_item
-        else:
-            return next(self)
-
-    def _check_type(self, direntry):
-        """
-        Args:
-            direntry (DirEntry): Pathname.
-
-        Returns:
-            int: File type.
-        """
-        try:
-            filetype = file(direntry)
-            if isinstance(filetype, AudioType):
-                return self.AUDIO_TYPE
-            elif isinstance(filetype, ImageType):
-                return self.IMAGE_TYPE
-            else:
-                raise exceptions.FileTypeNotSupportedError(direntry)
-        except IsADirectoryError:
-            return self.DIR_TYPE
-        except exceptions.FileTypeNotSupportedError:
-            return None
+    @property
+    def maxdepth(self):
+        return self._maxdepth
 
 
 def expandpath(path):
@@ -216,53 +192,35 @@ def pathparts(path):
     return tuple(parts)
 
 
-def is_readable(path, stats=None, follow_symlinks=False):
-    """
-    Returns:
-        bool: True if process has read permissions on the path.
+def chmod(path, *, read=True, write=True, follow_symlinks=True):
+    """Changes the mode of `path` to make it writable and/or readable.
 
     Raises:
-        PermissionError: If check is failed.
+        PermissionError: If access permissions cannot be changed.
     """
-    if stats is None:
-        stats = os.stat(path, follow_symlinks=follow_symlinks)
-    if stat.S_ISREG(stats.st_mode) or stat.S_ISDIR(stats.st_mode):
-        check_mode = os.R_OK
-        mode = (stats.st_mode & 0o777) | stat.S_IREAD
-        if not os.access(path, check_mode):
-            try:
-                os.chmod(path, mode, follow_symlinks=follow_symlinks)
-            except PermissionError:
-                raise PermissionError(
-                    errno.EACCES, 'Permission denied', os.fspath(path))
-    return True
-
-
-def is_writable(path, stats=None, follow_symlinks=False):
-    """
-    Returns:
-        bool: True if process has write permissions on the path.
-
-    Raises:
-        PermissionError: If check is failed.
-    """
-    if stats is None:
-        stats = os.stat(path, follow_symlinks=follow_symlinks)
-    if stat.S_ISDIR(stats.st_mode):
-        check_mode = os.W_OK | os.X_OK
-        mode = (stats.st_mode & 0o777) | stat.S_IWRITE | stat.S_IEXEC
-    elif stat.S_ISREG(stats.st_mode):
-        check_mode = os.W_OK
-        mode = (stats.st_mode & 0o777) | stat.S_IWRITE
-    else:
-        return True
-    if not os.access(path, check_mode):
+    access_kw, chmow_kw = {}, {}
+    if os.access in os.supports_follow_symlinks:
+        access_kw['follow_symlinks'] = follow_symlinks
+    if os.chmod in os.supports_follow_symlinks:
+        chmow_kw['follow_symlinks'] = follow_symlinks
+    stat_res = os.stat(path, follow_symlinks=follow_symlinks)
+    access_mode = 0
+    mode = stat_res.st_mode & 0o777
+    if read:
+        access_mode |= os.R_OK
+        mode |= stat.S_IREAD
+    if write:
+        access_mode |= os.W_OK
+        mode |= stat.S_IWRITE
+        if stat.S_ISDIR(stat_res.st_mode):
+            access_mode |= os.X_OK
+            mode |= stat.S_IEXEC
+    if not os.access(path, access_mode, **access_kw):
         try:
-            os.chmod(path, mode, follow_symlinks=follow_symlinks)
+            os.chmod(path, mode, **chmow_kw)
         except PermissionError as error:
             raise PermissionError(
                 errno.EACCES, 'Permission denied', os.fspath(path)) from error
-    return True
 
 
 def rename(path, new_name):
@@ -320,7 +278,7 @@ def free():
     return memory.available
 
 
-def file(path):
+def file(path, *, follow_symlinks=True):
     """Returns file type of the `path`.
 
     Raises:
@@ -329,13 +287,18 @@ def file(path):
             supported types.
     """
     try:
+        if follow_symlinks:
+            path = absrealpath(path)
         mime = magic.from_file(os.fsdecode(path), mime=True)
-    except IsADirectoryError:
+        ext = os.path.splitext(path)[1][1:].lower()
+    except (IsADirectoryError, FileNotFoundError, PermissionError):
         raise
     except OSError:
         filetype = None
     else:
         if re.match('^audio/(?:x-)?(?:mp[23]|mpeg)$', mime):
+            filetype = AudioType.MP3
+        elif mime == 'application/octet-stream' and ext == 'mp3':
             filetype = AudioType.MP3
         elif re.match('^audio/(?:x-)?(?:m4a|mp4|mpeg4)$', mime):
             filetype = AudioType.MP4
@@ -348,3 +311,21 @@ def file(path):
         else:
             raise exceptions.FileTypeNotSupportedError(path)
     return filetype
+
+
+def is_audio(path, follow_symlinks=True):
+    """Returns audio content type or False if not an audio file."""
+    try:
+        filetype = file(path, follow_symlinks=follow_symlinks)
+        return filetype if isinstance(filetype, AudioType) else False
+    except (IsADirectoryError, exceptions.FileTypeNotSupportedError):
+        return False
+
+
+def is_image(path, follow_symlinks=True):
+    """Returns image content type or False if not an image file."""
+    try:
+        filetype = file(path, follow_symlinks=follow_symlinks)
+        return filetype if isinstance(filetype, ImageType) else False
+    except (IsADirectoryError, exceptions.FileTypeNotSupportedError):
+        return False

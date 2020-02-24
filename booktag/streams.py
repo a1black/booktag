@@ -1,21 +1,39 @@
+import copy
 import io
 import itertools
 import hashlib
-import os
+import math
 import sys
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 from booktag import exceptions
+from booktag import osutils
 from booktag.constants import TagName
 
 
 def _list_frame(value):
-    """Returns value converted to a list."""
+    """
+    Returns:
+        list: Value converted to a list.
+    """
     try:
         return [value] if isinstance(value, (str, bytes)) else list(value)
     except TypeError:
         return [value]
+
+
+def _natural_int(value):
+    """
+    Returns:
+         int: Natural number, or None if value is zero.
+    """
+    natint = int(value)
+    if natint == 0:
+        natint = None
+    elif natint < 0:
+        raise ValueError('invalid literal for natural int: {0}'.format(value))
+    return natint
 
 
 class AudioStream:
@@ -80,6 +98,9 @@ class ImageStream:
         self._mime = 'image/{0}'.format(format).lower()
         self._hash = None
 
+    def __bool__(self):
+        return self._data is not None and len(self._data)
+
     def __hash__(self):
         if self._hash is None:
             self._hash = hashlib.md5(self._data).hexdigest()
@@ -115,6 +136,24 @@ class ImageStream:
         """
         return Image.open(io.BytesIO(self.data))
 
+    def _resize(self, image, width, height):
+        """
+        Args:
+            image (Image.Image): Original image.
+            width (int): New image width.
+            height (int): New image height.
+
+        Returns:
+            Image.Image: Resized PIL image object.
+        """
+        w = int(round(width, -1) if math.log10(width) >= 2 else width)
+        h = int(round(height, -1) if math.log10(height) >= 2 else height)
+        # Increase sharpness of image after resizing.
+        unsharp = ImageFilter.UnsharpMask(radius=1.5, percent=70, threshold=5)
+        resized = image.resize((w, h), resample=Image.LANCZOS).filter(unsharp)
+        resized.format = self.format
+        return resized
+
     def flip(self, method=FLIP_LEFT_RIGHT):
         """Flips the image from left to right or from top to bottom."""
         if method in (self.FLIP_LEFT_RIGHT, self.FLIP_TOP_BOTTOM):
@@ -131,14 +170,14 @@ class ImageStream:
             *args: Resize scale or precise image size.
         """
         if len(args) == 1:
-            width, height = self.width * args[0], self.height * args[0]
+            width = int(self.width * args[0])
+            height = int(self.height * args[0])
         elif len(args) == 2:
             width, height = args
         else:
             raise TypeError('resize() takes at most 2 positional arguments but'
                             '{0} were given'.format(len(args)))
-        resized = self._make_pil().resize((width, height),
-                                          resample=Image.BILINEAR)
+        resized = self._resize(self._make_pil(), width, height)
         resized.format = self.format
         self._export_pil(resized)
 
@@ -150,6 +189,33 @@ class ImageStream:
         else:
             raise ValueError('unknown rotation method: {0}'.format(method))
         self._export_pil(rotated)
+
+    def square(self, minsize, maxsize):
+        """Clips square area from the image."""
+        image = None
+        short_edge = sorted(self.dimensions)[0]
+        # Resize image to fit size restrictions
+        if short_edge < minsize:
+            dx = minsize / short_edge
+            image = self._resize(
+                self._make_pil(), self.width * dx, self.height * dx)
+            short_edge = sorted(image.size)[0]
+        elif short_edge > maxsize:
+            dx = maxsize / short_edge
+            image = self._resize(
+                self._make_pil(), self.width * dx, self.height * dx)
+            short_edge = sorted(image.size)[0]
+        # Crop image to square area with side equals to shortest image edge
+        if image is not None:
+            dx = (image.size[0] - short_edge) // 2
+            dy = (image.size[1] - short_edge) // 2
+            dsize = (dx + short_edge, dy + short_edge)
+            if dsize < image.size:
+                image = image.crop(dx, dy, *dsize)
+        # Save changes if any were made
+        if image is not None:
+            image.format = self.format
+            self._export_pil(image)
 
     def jpeg(self):
         """Converts image to a jpeg format."""
@@ -200,9 +266,10 @@ class ImageStream:
         if isinstance(path, bytes):
             source = io.BytesIO(path)
             path = '<embedded picture>'
-        else:
-            path = os.fspath(path)
+        elif osutils.is_image(path, follow_symlinks=False):
             source = open(path, 'rb')
+        else:
+            raise exceptions.NotAnImageFileError(path)
         try:
             pil: Image.Image = Image.open(source)
             new_instance = cls(b'', '', (0, 0))
@@ -227,20 +294,20 @@ class Metadata:
     mapping = {
         TagName.ALBUM: str,
         TagName.ALBUMARTIST: _list_frame,
-        TagName.ALBUMSORT: str,
+        TagName.ALBUMSORT: _natural_int,
         TagName.ARTIST: _list_frame,
         TagName.COMMENT: str,
         TagName.COMPOSER: _list_frame,
-        TagName.DATE: int,
-        TagName.DISCNUM: int,
-        TagName.DISCTOTAL: int,
+        TagName.DATE: _natural_int,
+        TagName.DISCNUM: _natural_int,
+        TagName.DISCTOTAL: _natural_int,
         TagName.GENRE: _list_frame,
         TagName.GROUPING: str,
         TagName.LABEL: str,
-        TagName.ORIGINALDATE: int,
+        TagName.ORIGINALDATE: _natural_int,
         TagName.TITLE: str,
-        TagName.TRACKNUM: int,
-        TagName.TRACKTOTAL: int
+        TagName.TRACKNUM: _natural_int,
+        TagName.TRACKTOTAL: _natural_int
     }
 
     def __init__(self, metadata=None, **kwargs):
@@ -295,6 +362,12 @@ class Metadata:
 
     def clear(self):
         self._data.clear()
+
+    def copy(self):
+        return self.__class__({k: copy.copy(v) for k, v in self.items()})
+
+    def dump(self):
+        return {k: copy.copy(v) for k, v in self.items()}
 
     def get(self, key, default=None):
         try:
