@@ -127,3 +127,16 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Vim
+*.swp
+.netrwhist
+tags
+TAGS
+
+# Git
+*.orig
+*.rej
+
+# Pycharm
+.idea/

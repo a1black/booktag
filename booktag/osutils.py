@@ -65,6 +65,11 @@ class DirEntry:
         return os.path.split(self.path)[1]
 
     @property
+    def extension(self):
+        """str: Extention without leading dot."""
+        return os.path.splitext(self.name)[1][1:]
+
+    @property
     def parts(self):
         """tuple: Various parts of the path."""
         return pathparts(self.path)

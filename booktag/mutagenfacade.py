@@ -106,15 +106,7 @@ class AbstractMapRule(metaclass=abc.ABCMeta):
             raise SkipTagError
 
     def run(self, source, target):
-        try:
-            self._execute(source, target)
-            logger.debug('Move tag from {0}[{1}] to {2}[{3}]'.format(
-                type(source).__name__, self._from, type(target).__name__,
-                self._to))
-        except SkipTagError:
-            self.set_tag(target, self._to, None)
-            logger.debug('Skip tag {0}[{1}]'.format(
-                type(source).__name__, self._from))
+        self._execute(source, target)
 
 
 class AbstractFilter(metaclass=abc.ABCMeta):
@@ -166,6 +158,12 @@ class MoveTag(AbstractMapRule):
     def _execute(self, source, target):
         value = self._filter(self.get_tag(source, self._from))
         self.set_tag(target, self._to, value)
+
+    def run(self, source, target):
+        try:
+            super().run(source, target)
+        except SkipTagError:
+            self.set_tag(target, self._to, None)
 
 
 class ID3In(AbstractFilter):
@@ -720,7 +718,10 @@ def export(path, metadata):
         _drop_tags(audio.tags, *mapping.get_useless(namespace))
     # Save metadata tags
     for rule in _resolve_audiotype(audio)[2]:
-        rule(metadata, audio.tags)
+        try:
+            rule(metadata, audio.tags)
+        except SkipTagError:
+            continue
     audio.save()
 
 

@@ -14,6 +14,14 @@ class CliArgumentError(AppBaseError):
         self.command = cmd
 
 
+class InvalidConfigurationError(AppBaseError):
+    """Raised when reading invalid or corrupted configuration file."""
+
+    def __init__(self, filename, msg):
+        super().__init__(msg)
+        self.filename = filename
+
+
 class FileTypeNotSupportedError(AppBaseError, OSError):
     """Raised when file cann't be processed by the application."""
 

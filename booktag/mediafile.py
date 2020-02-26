@@ -1,4 +1,3 @@
-import os
 import re
 
 from booktag import exceptions
@@ -11,16 +10,14 @@ from booktag.constants import AudioType, TagName
 class AudioFile:
 
     def __init__(self, path, format):
-        stat = os.stat(path)
         self._format = AudioType(format)
-        self._path = os.fsdecode(path)
-        self._size = int(stat.st_size)
+        self._path = osutils.DirEntry(path)
         self._audio_stream = None
         self._image_stream = None
         self._metadata = None
 
     def __fspath__(self):
-        return self.path
+        return self.path.path
 
     def _lazy_load(self):
         aformat, ainfo, ameta = mutagenfacade.from_file(self.path)
@@ -78,18 +75,18 @@ class AudioFile:
     @property
     def name(self):
         """str: Name of the file without extension."""
-        basename = os.path.basename(self.path)
+        basename = self._path.name
         return re.sub(r'\.(mp3|mp4|m4a|ogg)$', '', basename, flags=re.I)
 
     @property
     def path(self):
-        """str: Pathname to the audio file."""
+        """osutils.DirEntry: Pathname to the audio file."""
         return self._path
 
     @property
     def size(self):
         """int: File size in bytes."""
-        return self._size
+        return self._path.size(follow_symlinks=True)
 
     @classmethod
     def from_file(cls, path):

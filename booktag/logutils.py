@@ -1,11 +1,20 @@
 import logging
+import platform
+import os
 from threading import Lock
 
 import tqdm
 
 
+if platform.system() == 'Windows':
+    LOGFILE = os.path.join(os.path.expandvars('%LOCALAPPDATA'), 'booktag.log')
+else:
+    LOGFILE = os.path.join(os.path.expanduser('~'), '.booktag.log')
+
+
 # https://stackoverflow.com/questions/38543506/
 class TqdmLoggingHandler(logging.Handler):
+    """Handler redirects logger output to :meth:`tqdm.tqdm.write`."""
 
     def emit(self, record):
         try:
@@ -20,9 +29,10 @@ class TqdmLoggingHandler(logging.Handler):
 def setup_root_logger(debug=False):
     """Returns root logger."""
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG if debug else logging.WARNING)
+    logger.setLevel(logging.DEBUG if debug else logging.ERROR)
     # Setup handler for writing to log file
-    logfile = logging.FileHandler('booktag.log', mode='w')
+    logfile = logging.FileHandler(LOGFILE, mode='w')
+    logfile.setLevel(logger.level)
     formater = logging.Formatter(
         fmt="%(levelname)4.4s:%(asctime)s:%(message)s", datefmt="%H:%M:%S")
     logfile.setFormatter(formater)

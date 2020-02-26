@@ -7,10 +7,6 @@ import ruamel.yaml as yaml
 from booktag import streams
 
 
-class InvalidConfigurationError(Exception):
-    """Raised when reading invalid or corrupted configuration file."""
-
-
 class SettingContainer(collections.UserDict):
     """Class provides access to nested dictionaries using composite key.
 
@@ -122,28 +118,8 @@ class Settings:
     def get(self, key, default=None):
         return self._settings.get(key, default)
 
-    def from_file(self, path):
-        ext = os.path.splitext(path)[1].lower()
-        if ext == 'json':
-            self.from_json(path)
-        else:
-            self.from_yaml(path)
-
-    def from_json(self, path):
-        with open(path, 'r') as stream:
-            try:
-                self._settings.update(json.load(stream))
-            except json.JSONDecodeError as error:
-                raise InvalidConfigurationError(
-                    'Invalid JSON configuraton file') from error
-
-    def from_yaml(self, path):
-        with open(path, 'r') as stream:
-            try:
-                self._settings.update(yaml.safe_load(stream))
-            except yaml.YAMLError as error:
-                raise InvalidConfigurationError(
-                    'Invalid YAML configuration file') from error
+    def update(self, *args, **kwargs):
+        self._settings.update(*args, **kwargs)
 
 
 settings = Settings()

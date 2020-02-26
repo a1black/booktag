@@ -1,5 +1,4 @@
 import collections
-import errno
 import gc
 
 import natsort
@@ -8,7 +7,6 @@ import tqdm
 from booktag import exceptions
 from booktag import logutils
 from booktag import find
-from booktag import osutils
 from booktag.settings import settings
 from booktag.constants import TagName
 from booktag.mediafile import AudioFile
@@ -130,14 +128,14 @@ class Updater:
         cover_embedded = self._load_embedded_cover() if cover is None else None
         # Set track/disc metadata tags
         meta: dict = settings.get('album_metadata', Metadata()).dump()
-        if TagName.TRACKNUM not in meta and TagName.TRACKTOTAL not in meta:
+        track_index = settings.get('metadata.tags.index', False)
+        if track_index is True:
+            meta[TagName.TRACKTOTAL] = len(self._audio_queue)
             tracknum = 1
-            tracktotal = len(self._audio_queue)
+        elif track_index is False:
+            tracknum = 1
         else:
-            tracknum = meta.pop(TagName.TRACKNUM, 1)
-            tracktotal = meta.pop(TagName.TRACKTOTAL, 0)
-        discnum = meta.pop(TagName.DISCNUM, 0)
-        disctotal = meta.pop(TagName.DISCTOTAL, 0)
+            tracknum = track_index
         # Write new metadata tags
         update_bar = tqdm.tqdm(self._audio_queue, desc='Update',
                                ncols=self.BAR_SIZE, bar_format=self.BAR_FMT)
@@ -145,15 +143,20 @@ class Updater:
             logger.info("update metadata tag: '{0}'".format(file.path))
             # Set new tag from configuration, including external cover art
             file.metadata.update(meta)
-            if not settings.get('metadata.tags.keeptracknum', False):
-                file.metadata[TagName.TRACKNUM] = tracknum
-                file.metadata[TagName.TRACKTOTAL] = tracktotal
-            if not settings.get('metadata.tags.keepdiscnum', False):
-                file.metadata[TagName.DISCNUM] = discnum
-                file.metadata[TagName.DISCTOTAL] = disctotal
             # Set cover art using embedded image from another audio file
             if file.cover is None and cover_embedded:
                 file.cover = cover_embedded
+            # Update track indexing
+            if track_index is not False:
+                file.metadata[TagName.TRACKNUM] = tracknum
+            # Drop disc partitioning
+            if settings.get('metadata.tags.dropdisc', False):
+                del file.metadata[TagName.DISCNUM]
+                del file.metadata[TagName.DISCTOTAL]
+            # Set track title as file name if explicit name is not provided
+            if not file.metadata.get(TagName.TITLE):
+                file.metadata[TagName.TITLE] = file.name
+            file.export_metadata()
 
 
 def main(*paths):
