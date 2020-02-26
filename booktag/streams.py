@@ -101,6 +101,13 @@ class ImageStream:
     def __bool__(self):
         return self._data is not None and len(self._data)
 
+    def __str__(self):
+        return '{0}, {1} bytes, {2}x{3}'.format(self.mime, len(self),
+                                                *self.dimensions)
+
+    def __len__(self):
+        return len(self._data)
+
     def __hash__(self):
         if self._hash is None:
             self._hash = hashlib.md5(self._data).hexdigest()

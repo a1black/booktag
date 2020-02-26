@@ -126,10 +126,40 @@ class AbstractFilter(metaclass=abc.ABCMeta):
 class AbstractPictureRule(AbstractMapRule, metaclass=abc.ABCMeta):
     """Abstract class for handling embedded picture tags."""
 
+    PRIORITY_ORDER = (PictureType.COVER_FRONT, PictureType.COVER_BACK,
+                      PictureType.OTHER, PictureType.LEAFLET_PAGE,
+                      PictureType.MEDIA, PictureType.LEAD_ARTIST,
+                      PictureType.ARTIST, PictureType.ILLUSTRATION)
+
     def __init__(self, source_key, *filters):
         super().__init__(*filters)
         self._from = source_key
         self._to = TagName.COVER
+
+    def _embedded_iter(self, tagcontainer, tagkey):
+        """
+        Args:
+            tagcontainer (dict): Metadata tags.
+            tagkey (str): Key under which tag is stored in container.
+
+        Yields:
+            streams.ImageStream: Embedded pictures.
+        """
+        weights = {tp: pr
+                   for tp, pr in zip(self.PRIORITY_ORDER, range(100, 0, -10))}
+        pictures = []
+        for pic in self.get_tag(tagcontainer, tagkey, True):
+            try:
+                pic = self._filter(pic)
+                pictype = getattr(
+                    pic, 'type',
+                    getattr(pic, 'imageformat', PictureType.COVER_FRONT))
+                pictures.append((pictype, getattr(pic, 'data', pic)))
+            except SkipTagError:
+                continue
+        pictures.sort(key=lambda x: weights.get(x[0], 0), reverse=True)
+        for pic in pictures:
+            yield pic[1]
 
     def get_tag(self, source, key, silent=False):
         if hasattr(source, 'getall'):
@@ -316,16 +346,6 @@ class VorbisCover(AbstractFilter):
             return None
 
 
-class Mp4Cover(AbstractFilter):
-    """Filters wraps tag into a dictionary."""
-
-    def run(self, value):
-        if isinstance(value, bytes) and len(value):
-            return dict(data=value, type=PictureType.COVER_FRONT)
-        else:
-            return None
-
-
 class ToApic(AbstractFilter):
     """Filter converts raw image data to ID3 frame."""
 
@@ -470,39 +490,11 @@ class PictureIn(AbstractPictureRule):
 class PictureOut(AbstractPictureRule):
     """Class retrieves raw image data from metadata tag."""
 
-    PRIORITY_ORDER = (PictureType.COVER_FRONT, PictureType.COVER_BACK,
-                      PictureType.OTHER, PictureType.LEAFLET_PAGE,
-                      PictureType.MEDIA, PictureType.LEAD_ARTIST,
-                      PictureType.ARTIST, PictureType.ILLUSTRATION)
-
-    def _embedded_iter(self, tagcontainer):
-        """
-        Args:
-            tagcontainer (dict): Metadata tags.
-
-        Yields:
-            streams.ImageStream: Embedded pictures.
-        """
-        weights = {tp: pr
-                   for tp, pr in zip(self.PRIORITY_ORDER, range(100, 0, -10))}
-        pictures = []
-        for pic in self.get_tag(tagcontainer, self._from, True):
-            try:
-                pic = self._filter(pic)
-                if not hasattr(pic, 'type'):
-                    pic.type = PictureType.COVER_FRONT
-                pictures.append(pic)
-            except SkipTagError:
-                continue
-        pictures.sort(key=lambda x: weights.get(x.type, 0), reverse=True)
-        for pic in pictures:
-            yield pic
-
     def _execute(self, source, target):
-        for picture in self._embedded_iter(source):
+        for picture in self._embedded_iter(source, self._from):
             try:
                 self.set_tag(target, self._to,
-                             streams.ImageStream.from_file(picture.data))
+                             streams.ImageStream.from_file(picture))
                 break
             except (AttributeError, exceptions.NotAnImageFileError):
                 continue
@@ -530,7 +522,7 @@ MP3ReadMapping = [
 ]
 # Mappings for MPEG-4 Audio tagging container.
 MP4ReadMapping = [
-    PictureOut('covr', Mp4Cover),
+    PictureOut('covr'),
     MoveTag('\xa9alb', TagName.ALBUM, ToStr),
     MoveTag('\xa9day', TagName.DATE, FirstItem, ToInt(notzero=True)),
     MoveTag('\xa9grp', TagName.GROUPING, ToStr),
@@ -540,8 +532,8 @@ MP4ReadMapping = [
     MoveTag('\xa9wrt', TagName.COMPOSER, SplitStr(sep=[',', '&', '/'])),
     MoveTag('\xa9gen', TagName.GENRE, SplitStr(sep=[',', '/'])),
     MoveTag('\xa9cmt', TagName.COMMENT, ToStr),
-    PairTag('trkn', TagName.TRACKNUM, TagName.TRACKTOTAL, FirstItem),
-    PairTag('disk', TagName.DISCNUM, TagName.DISCTOTAL, FirstItem)
+    PairTag('trkn', TagName.TRACKNUM, TagName.TRACKTOTAL, FirstItem, ToList),
+    PairTag('disk', TagName.DISCNUM, TagName.DISCTOTAL, FirstItem, ToList)
 ]
 # Mappings for Ogg Vorbis tagging container.
 OggReadMapping = [
@@ -675,7 +667,7 @@ def _open(path):
         exceptions.NotAnAudioFileError: Invalid file format.
     """
     try:
-        fileobj = File(path)
+        fileobj = File(os.fspath(path))
         if fileobj is None:
             raise MutagenError
         if getattr(fileobj, 'tags', None) is None:
@@ -693,12 +685,12 @@ def from_file(path):
     Returns:
         tuple: Media file components.
     """
-    audio = _open(os.fspath(path))
+    audio = _open(path)
     mediatype, mapping = _resolve_audiotype(audio)[:2]
     mediainfo = streams.AudioStream(
         channels=getattr(audio.info, 'channels', 0),
         bit_rate=getattr(audio.info, 'bitrate', 0),
-        duration=getattr(audio.info, 'lehgth', 0),
+        duration=getattr(audio.info, 'length', 1),
         sample_rate=getattr(audio.info, 'sample_rate', 0))
     metadata = streams.Metadata()
     for rule in mapping:
@@ -711,7 +703,7 @@ def from_file(path):
 
 def export(path, metadata):
     """Writes metadata tags to the audio file."""
-    audio = _open(os.fspath(path))
+    audio = _open(path)
     mapping = _resolve_audiotype(audio)[2]
     # Drop useless tags
     for namespace in settings.get('metadata.tags.drop', []):
@@ -723,6 +715,21 @@ def export(path, metadata):
         except SkipTagError:
             continue
     audio.save()
+
+
+def read_raw(path):
+    """
+    Args:
+        path (os.PathLike): Audio file to be processed.
+
+    Returns:
+        dict: Unprocesses metadata tags.
+    """
+    audio = _open(path)
+    rawdata = {}
+    for key, value in audio.tags.items():
+        rawdata[key] = value
+    return rawdata
 
 
 def probe(path):

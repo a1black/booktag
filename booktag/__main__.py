@@ -32,6 +32,7 @@ class ArgAction(argparse.Action):
         self.setting_key = kwargs.pop('path', None)
         if not self.setting_key:
             raise ValueError('missing key in setting object')
+        self.store_const = kwargs.get('nargs') == 0
         super().__init__(*args, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
@@ -39,7 +40,10 @@ class ArgAction(argparse.Action):
         if patch is None:
             patch = {}
             setattr(namespace, 'setting_patch', patch)
-        patch[self.setting_key] = values
+        if self.store_const:
+            patch[self.setting_key] = self.const
+        else:
+            patch[self.setting_key] = values
 
 
 class PartialParse(argparse.Action):
@@ -245,12 +249,27 @@ def get_argparser():
     # Add subparsers
     subparsers = parser.add_subparsers(
         title='Command list', dest='command', metavar='<command>')
+    # Add arguments for *show* command
+    show_cmd = subparsers.add_parser(
+        'show', formatter_class=argparse.RawDescriptionHelpFormatter,
+        help='Display metadata tags',
+        description='Command-line tool for retrieving metadata tags from '
+        'an audio file and print then in human friendly format.'
+    )
+    show_cmd.add_argument(
+        'path', metavar='<path>', nargs='+',
+        type=PathnameType(allow_symlink=False, ftype='f', perm='r'),
+        help='List of files')
+    show_cmd.add_argument(
+        '--raw', nargs=0, const=True, default=False, action=ArgAction,
+        path='metadata.show.raw', help='Show raw metadata values'
+    )
     # Add argument for *update* command
     update_cmd = subparsers.add_parser(
         'update', formatter_class=argparse.RawDescriptionHelpFormatter,
         parents=[metadata_parse], help='Set metadata tags',
-        description='Command-line tool for writing '
-        'user defined metadata tags to audio files')
+        description='Command-line tool for writing user defined metadata tags '
+        'to audio files')
     update_cmd.add_argument(
         'path', metavar='<path>', nargs='+',
         type=PathnameType(allow_symlink=False, perm='rw'),
@@ -261,7 +280,7 @@ def get_argparser():
         help='YAML or JSON file containing metadata tag arguments')
     update_cmd.add_argument(
         '--index', nargs='?', const=True, default=False, type=positive_int,
-        action=ArgAction, path=f'metadata.tags.index',
+        action=ArgAction, path='metadata.tags.index',
         help='Update track order by sorting file in natural order')
     update_cmd.add_argument(
         '--drop-disc', nargs=0, const=True, default=False,
@@ -269,7 +288,7 @@ def get_argparser():
         help='Unset disc number and total discs metadta tags')
     update_cmd.add_argument(
         '--dump-cover', nargs=0, const=True, default=False,
-        action=ArgAction, path=f'cover_near_file',
+        action=ArgAction, path='cover_near_file',
         help='place cover art next to audio files')
     return parser
 

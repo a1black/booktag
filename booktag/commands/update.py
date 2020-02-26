@@ -78,7 +78,9 @@ class Updater:
                 try:
                     self._audio_queue.append(AudioFile.from_file(path))
                 except exceptions.NotAnAudioFileError:
-                    logger.warning("not an audio file: '{0}'".format(path))
+                    logger.warning(
+                        "file not supported or not an audio: '{0}'".format(
+                            path))
         if not len(self._audio_queue):
             raise RuntimeError('no audio files find')
 
