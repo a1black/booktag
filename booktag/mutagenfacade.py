@@ -123,7 +123,7 @@ class AbstractFilter(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
 
-class AbstractPictureRule(AbstractMapRule, metaclass=abc.ABCMeta):
+class AbstractPictureRule(AbstractMapRule):
     """Abstract class for handling embedded picture tags."""
 
     PRIORITY_ORDER = (PictureType.COVER_FRONT, PictureType.COVER_BACK,
@@ -135,6 +135,10 @@ class AbstractPictureRule(AbstractMapRule, metaclass=abc.ABCMeta):
         super().__init__(*filters)
         self._from = source_key
         self._to = TagName.COVER
+
+    @abc.abstractmethod
+    def _execute(self, source, target):
+        raise NotImplementedError
 
     def _embedded_iter(self, tagcontainer, tagkey):
         """

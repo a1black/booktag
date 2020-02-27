@@ -1,8 +1,4 @@
 import collections
-import json
-import os
-
-import ruamel.yaml as yaml
 
 from booktag import streams
 
@@ -12,9 +8,6 @@ class SettingContainer(collections.UserDict):
 
     Composite key is a sequence of keys separeted by a dot.
     """
-
-    def __init__(self):
-        self.data = {}
 
     def __contains__(self, key):
         try:

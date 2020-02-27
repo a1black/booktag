@@ -123,7 +123,7 @@ class PathnameType:
             mode = '/'.join(v for k, v in dict(r='read', w='write').items()
                             if k in self._perm)
             raise argparse.ArgumentTypeError(
-                "no {0} access permissions: '{0}'".format(mode, path))
+                "no {0} access permissions: '{1}'".format(mode, path))
 
     def __repr__(self):
         kwargs = dict(allow_symlink=self._allow_symlink, ftype=self._type,
@@ -136,7 +136,7 @@ class PathnameType:
 def imagestream(value):
     try:
         return ImageStream.from_file(value)
-    except exceptions.NotAnImageFileError as error:
+    except exceptions.NotAnImageFileError:
         raise TypeError('invalid image file')
 
 
